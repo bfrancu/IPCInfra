@@ -1,7 +1,14 @@
 TEMPLATE = subdirs
 
 SUBDIRS += \
-    Driver \
     IOInfra \
+    UtilitiesInfra \
     TransportInfra \
-    UtilitiesInfra
+    Driver
+
+
+Driver.depends = IOInfra
+Driver.depends = TransportInfra
+UtilitiesInfra.depends = IOInfra
+TransportInfra.depends = IoInfra
+TransportInfra.depends = UtilitiesInfra

@@ -8,6 +8,7 @@
 
 #include <iostream>
 
+#include "SocketTypes.h"
 #include "Policies/StreamIOPolicy.hpp"
 
 namespace infra
@@ -30,11 +31,11 @@ class DatagramIOPolicy<Host,
     using socket_address_type = typename socket_traits<SocketDevice>::socket_address_type;
 
 public:
-    ssize_t sendTo(const socket_address_type & peer_socket, std::string_view data, io::SocketIOFlags flags = io::SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
+    ssize_t sendTo(const socket_address_type & peer_socket, std::string_view data, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
         return sendTo(peer_socket, data, data.length(), flags);
     }
 
-    ssize_t sendTo(const socket_address_type & peer_socket, std::string_view data, size_t max_size, io::SocketIOFlags flags = io::SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
+    ssize_t sendTo(const socket_address_type & peer_socket, std::string_view data, size_t max_size, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
         static std::unique_ptr<sockaddr> p_dst_addr{std::make_unique<sockaddr>()};
         memset(p_dst_addr->sa_data, 0, sizeof(p_dst_addr->sa_data));
         peer_socket.getAddress(*p_dst_addr);
@@ -46,7 +47,7 @@ public:
                         sizeof(sockaddr));
     }
 
-    ssize_t recvFrom(size_t max_length, io::SocketIOFlags flags, std::string & out_data, socket_address_type & out_source){
+    ssize_t recvFrom(size_t max_length, SocketIOFlags flags, std::string & out_data, socket_address_type & out_source){
         /*static char buf[this->READ_BUFFER_SIZE];
 
         static std::unique_ptr<sockaddr> p_from_addr{std::make_unique<sockaddr>()};
@@ -110,7 +111,7 @@ public:
         return this->recvLogic(recvfrom_cb, max_length, flags, out_data);
     }
 
-    std::string recvFrom(size_t max_length, io::SocketIOFlags flags, socket_address_type & out_source){
+    std::string recvFrom(size_t max_length, SocketIOFlags flags, socket_address_type & out_source){
          std::string ret;
          recvFrom(max_length, flags, &ret, out_source);
          return ret;

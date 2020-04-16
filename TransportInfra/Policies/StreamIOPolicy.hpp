@@ -8,15 +8,18 @@
 #include <iostream>
 
 #include "sys_call_eval.h"
-
+#include "enum_flag.h"
 #include "crtp_base.hpp"
 #include "SocketTypes.h"
 #include "Traits/socket_traits.hpp"
 #include "Devices/Sockets/SocketDeviceAccess.hpp"
 
 
+
 namespace infra
 {
+
+using SocketIOFlags = enum_flag<io::ESocketIOFlag>;
 
 
 template<typename Host, typename SocketDevice, typename = void>
@@ -33,11 +36,11 @@ class StreamIOPolicy<Host,
     using socket_address_type = typename socket_traits<SocketDevice>::socket_address_type;
 
 public:
-    ssize_t send(std::string_view data, io::SocketIOFlags flags = io::SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
+    ssize_t send(std::string_view data, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
         return send(data, data.length(), flags);
     }
 
-    ssize_t send(std::string_view data, size_t max_size, io::SocketIOFlags flags = io::SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
+    ssize_t send(std::string_view data, size_t max_size, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
         if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return -1;
         return ::send(SocketDeviceAccess::getHandle(this->asDerived()),
                       data.data(),
@@ -45,14 +48,14 @@ public:
                       static_cast<int>(flags));
     }
 
-    ssize_t recv(size_t max_length, io::SocketIOFlags flags, std::string & out_data){
+    ssize_t recv(size_t max_length, SocketIOFlags flags, std::string & out_data){
         if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return -1;
         using namespace std::placeholders;
         auto recv_cb = std::bind(::recv, SocketDeviceAccess::getHandle(this->asDerived()), _1, _2, _3);
         return recvLogic(recv_cb, max_length, flags, out_data);
     }
 
-    std::string recv(size_t max_length, io::SocketIOFlags flags){
+    std::string recv(size_t max_length, SocketIOFlags flags){
          std::string ret;
          recv(max_length, flags, &ret);
          return ret;
@@ -63,7 +66,7 @@ protected:
     inline static constexpr unsigned int READ_BUFFER_SIZE{4096};
 
 protected:
-    ssize_t recvLogic(recv_callable sys_callable, size_t max_length, io::SocketIOFlags flags, std::string & out_data)
+    ssize_t recvLogic(recv_callable sys_callable, size_t max_length, SocketIOFlags flags, std::string & out_data)
     {
         std::cout << "recvLogic\n";
         static char buf[READ_BUFFER_SIZE];
@@ -72,7 +75,7 @@ protected:
         ssize_t read_count_per_call{ 0 };
 
         //call blocks until length bytes have been received
-        if (io::SocketIOFlags(io::ESocketIOFlag::E_MSG_WAITALL) & flags){
+        if (SocketIOFlags(io::ESocketIOFlag::E_MSG_WAITALL) & flags){
             ret_total_size_read = sys_callable(buf, max_length, static_cast<int>(flags));
 
             if (ret_total_size_read > 0){

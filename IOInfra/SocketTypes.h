@@ -2,7 +2,6 @@
 #define SOCKETTYPES_H
 #include <sys/socket.h>
 
-#include "enum_flag.h"
 
 namespace infra
 {
@@ -71,8 +70,6 @@ enum class ESocketIOFlag : int
     E_MSG_MORE = 0x8000, /* Sender will send more. */
     E_MSG_NOSIGNAL = 0x4000, /* Do not generate SIGPIPE.  */
 };
-
-using SocketIOFlags = enum_flag<io::ESocketIOFlag>;
 
 
 enum class ESocketEvent
