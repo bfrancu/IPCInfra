@@ -97,7 +97,7 @@ public:
         bool ret{false};
         if (!m_resource_handler.open()){
             setDirFilePaths(pathname);
-            ret = true;
+            ret = true;           
         }
         return ret;
     }

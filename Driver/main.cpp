@@ -1,4 +1,5 @@
 #include "fcntl.h"
+#include <sys/stat.h>
 #include "Policies/UnixResourceHandler.h"
 #include "Host.hpp"
 #include "Devices/FileDevice.hpp"
@@ -24,11 +25,15 @@
 
 #include "Policies/StateChangeAdvertiserPolicy.hpp"
 #include "Policies/DatagramIOPolicy.hpp"
+#include "Policies/FifoIOPolicy.hpp"
+#include "Devices/Pipes/NamedPipeDevice.hpp"
+#include "Devices/Pipes/NamedPipeFactory.h"
 
 void testDevicePolicies();
 void testSocketDevices();
 void testErrorChangedPolicy();
 void testSocketDatagramIO();
+void testNamedPipes();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -52,7 +57,9 @@ struct HasObsErr<Device, std::enable_if_t<is_observable<std::invoke_result_t<dec
 int main()
 {
     using namespace infra;
-    testSocketDatagramIO();
+    testNamedPipes();
+
+
     //std::cout << HasMemberT_AEIOU<TestDevice>::value << "\n";
 
     /*
@@ -65,6 +72,39 @@ int main()
     return 0;
 }
 
+void testNamedPipes()
+{
+    using namespace infra;
+    NamedPipeFactory factory;
+    std::string fifo_path{"/home/bfrancu/Documents/Work/myfifo2"};
+
+    int flags = 0;
+    flags |= O_NONBLOCK;
+    flags |= O_RDONLY;
+
+    if (-1 != ::open(fifo_path.c_str(), flags)){
+        std::cout << "open pipe succedeed\n";
+    }
+    else std::cerr << "open pipe failed with " << errno << "\n";
+
+//    struct stat f_stats;
+//    if (-1 == ::stat("/home/bfrancu/Documents/Work", &f_stats)){
+//        std::cout << "errno " << errno << "\n";
+//    }
+
+     auto original_rd_pipe = factory.getReadingEndpoint<FifoIOPolicy>(fifo_path, false);
+     std::string msg;
+     original_rd_pipe.read(msg);
+     std::cout << "received: " << msg << "\n";
+
+//    ReadingNamedPipeDevice<UnixResourceHandler> reading_pipe;
+//    std::cout << std::boolalpha << reading_pipe.open("alabala", true)
+//              << "\n";
+
+//    WritingNamedPipeDevice<UnixResourceHandler> writing_pipe(fifo_path);
+//    std::cout << std::boolalpha << writing_pipe.open(true)
+//              << "\n";
+}
 
 void errorPrinter(const infra::io::EFileIOError & err){
     std::cout << "errorPrinter: " << infra::utils::to_underlying(err) << "\n";

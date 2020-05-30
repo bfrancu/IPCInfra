@@ -67,4 +67,16 @@ template<typename T>
 struct HasMemberT_SetLatestError<T, std::void_t<decltype (&T::setLatestError)>>
         : std::true_type {};
 } //infra
+
+
+template<typename T, typename = std::void_t<>>
+struct IsFifoDeviceT : std::false_type
+{};
+
+
+template<typename T>
+struct IsFifoDeviceT<T, std::void_t<typename T::io_profile>> : std::true_type
+{};
+
+
 #endif // DEVICE_TRAITS_HPP

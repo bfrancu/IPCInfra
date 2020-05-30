@@ -19,6 +19,7 @@ class LinuxIOUtilities
 public:
     static bool remove(const std::string & pathname);
     static bool exists(const std::string & pathname);
+    static bool existingDirectory(const std::string & directory);
     static std::string fullPath(const std::string & filename, const std::string & directory);
     static std::string getCurrentDir();
     static std::pair<std::string, std::string> getDirectoryAndFileName(const std::string & full_path);

@@ -25,11 +25,16 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    Devices/Pipes/NamedPipeFactory.cpp \
     Devices/Sockets/UnixSocketAddress.cpp \
-    Policies/UnixResourceHandler.cpp
+    Policies/UnixResourceHandler.cpp \
+    Reactor/EpollDemultiplexer.cpp \
+    Reactor/EpollDemux.cpp
 
 HEADERS += \
     Devices/FileDevice.hpp \
+    Devices/Pipes/NamedPipeDevice.hpp \
+    Devices/Pipes/NamedPipeFactory.h \
     Devices/Sockets/HostAddress.hpp \
     Devices/Sockets/InetSocketAddress.hpp \
     Devices/Sockets/SocketDevice.hpp \
@@ -41,12 +46,19 @@ HEADERS += \
     Policies/ConnectionPolicy.hpp \
     Policies/DatagramIOPolicy.hpp \
     Policies/ErrorChangeAdvertiserPolicy.h \
+    Policies/FifoIOPolicy.hpp \
     Policies/IOPolicy.hpp \
     Policies/ResourceStatusPolicy.hpp \
     Policies/SeekableOperations.hpp \
     Policies/StateChangeAdvertiserPolicy.hpp \
     Policies/StreamIOPolicy.hpp \
     Policies/UnixResourceHandler.h \
+    Reactor/EpollDemultiplexer.h \
+    Reactor/EpollDemux.h \
+    Reactor/EventHandlerSubscriber.h \
+    Reactor/EventTypes.h \
+    Reactor/Reactor.hpp \
+    Reactor/SubscriberInfo.hpp \
     Traits/device_traits.hpp \
     Traits/handler_traits.hpp \
     Traits/socket_traits.hpp \

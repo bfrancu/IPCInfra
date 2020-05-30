@@ -34,6 +34,7 @@ HEADERS += \
     UtilitiesInfra_global.h \
     crtp_base.hpp \
     enum_flag.h \
+    randomizer.hpp \
     sys_call_eval.h \
     utilities.hpp
 

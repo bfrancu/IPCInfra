@@ -35,8 +35,16 @@ class GenericIOPolicy<Host, Device, std::void_t<std::enable_if_t<HasUnixHandleTy
      using handle_type = typename device_traits<Device>::handle_type;
 
 public:
-    size_t read(std::string & result){
-        handle_type handle = this->asDerived().getHandle();
+    size_t read(std::string & result){ return read(this->asDerived().getHandle(), result);}
+
+    size_t readLine(std::string & result){ return readLine(this->asDerived().getHandle(), result); }
+
+    size_t readInBuffer(size_t buffer_len, char *buffer){ return readInBuffer(this->asDerived().getHandle(), buffer_len, buffer); }
+
+    ssize_t write(const std::string & data) { return write(this->asDerived().getHandle(), data); }
+
+protected:
+    static size_t read(handle_type handle, std::string & result){
         char read_buffer[READ_BUFFER_SIZE];
         size_t total_size_read{0};
         int read_count_per_call{0};
@@ -60,13 +68,10 @@ public:
             // the buffer is not fully filled. no more data available
             if (READ_BUFFER_SIZE != read_count_per_call) break;
         }
-
         return  total_size_read;
-
     }
 
-    size_t readLine(std::string & result){
-        handle_type handle = this->asDerived().getHandle();
+    static size_t readLine(handle_type handle, std::string & result){
         char read_buffer[READ_BUFFER_SIZE];
         const char * read_buffer_end{nullptr};
         size_t total_size_read{0};
@@ -85,44 +90,42 @@ public:
             if(0 == read_count_per_call) break;
 
             read_buffer_end = read_buffer + read_count_per_call;
-            auto endline_pos = std::find_if(read_buffer, read_buffer_end, [] (auto ch){ return END_LINE_CHAR == ch; });
+            auto endline_pos = std::find_if(const_cast<const char*>(read_buffer), read_buffer_end, [] (char ch){ return END_LINE_CHAR == ch; });
 
             auto copiable_chars_count = (endline_pos == read_buffer_end ? read_count_per_call
-                                                                        : static_cast<size_t>(std::distance(read_buffer, endline_pos)));
+                                                                        : static_cast<size_t>(std::distance(std::cbegin(read_buffer), endline_pos)));
 
             result.append(read_buffer, copiable_chars_count);
             total_size_read += copiable_chars_count;
 
-            if (copiable_chars_count != read_count_per_call) break;
+            if (static_cast<int>(copiable_chars_count) != read_count_per_call) break;
         }
 
         result.shrink_to_fit();
         return total_size_read;
+
     }
 
-    size_t readInBuffer(size_t buffer_len, char *buffer){
-         size_t size_read{0};
-         handle_type handle = this->asDerived().getHandle();
+    static size_t readInBuffer(handle_type handle, size_t buffer_len, char *buffer){
+        size_t size_read{0};
+        for (;;)
+        {
+            ssize_t read_count = ::read(handle, buffer, buffer_len);
+            if (-1 == read_count && EINTR == errno) continue;
 
-         for (;;)
-         {
-             ssize_t read_count = ::read(handle, buffer, buffer_len);
-             if (-1 == read_count && EINTR == errno) continue;
-
-             if (read_count > 0)
-             {
-                 size_read = static_cast<size_t>(read_count);
-             }
-             break;
-         }
-         return size_read;
+            if (read_count > 0)
+            {
+                size_read = static_cast<size_t>(read_count);
+            }
+            break;
+        }
+        return size_read;
     }
 
-    ssize_t write(const std::string & data){
+    static ssize_t write(handle_type handle, const std::string & data){
         auto data_len{data.length()};
         ssize_t total_size_written{0};
         ssize_t write_count_per_call{0};
-        handle_type handle = this->asDerived().getHandle();
 
         while (total_size_written < static_cast<ssize_t>(data_len))
         {
@@ -138,7 +141,6 @@ public:
 
         return total_size_written;
     }
-
 
 private:
     static inline constexpr unsigned int READ_BUFFER_SIZE{4096};

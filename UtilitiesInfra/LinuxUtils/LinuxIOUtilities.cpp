@@ -162,6 +162,12 @@ bool LinuxIOUtilities::exists(const std::string &pathname)
     return (0 == ::access(pathname.c_str(), F_OK));
 }
 
+bool LinuxIOUtilities::existingDirectory(const std::string &directory)
+{
+    io::FileInfo info{directory};
+    return io::EFileType::E_DIRECTORY == info.type() && exists(directory);
+}
+
 bool LinuxIOUtilities::remove(const std::string &pathname)
 {
     return (-1 != ::unlink(pathname.c_str()));
