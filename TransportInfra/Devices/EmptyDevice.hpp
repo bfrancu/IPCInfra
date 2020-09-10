@@ -1,0 +1,4 @@
+#ifndef EMPTYDEVICE_HPP
+#define EMPTYDEVICE_HPP
+
+#endif // EMPTYDEVICE_HPP
