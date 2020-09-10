@@ -13,7 +13,7 @@
 #include "FileInfo.h"
 
 #include "utilities.hpp"
-
+#include "sys_call_eval.h"
 
 namespace infra
 {
@@ -262,6 +262,23 @@ bool LinuxIOUtilities::copyTo(const std::string &original_name, std::string copy
     ::close(new_fd);
 
     return ret;
+}
+
+bool LinuxIOUtilities::makefifo(const std::string &pathname)
+{
+    std::cout << "LinuxIOUtilities::makefifo\n";
+    auto [directory, filename] = LinuxIOUtilities::getDirectoryAndFileName(pathname);
+
+    std::cout << "LinuxIOUtilities::makefifo directory: " << directory
+              << ", filename: " << filename << "\n";
+
+    if (LinuxIOUtilities::existingDirectory(directory)){
+        /* So we get the permissions we want */
+        ::umask(0);
+        return sys_call_noerr_eval(::mkfifo, pathname.c_str(), S_IRUSR | S_IWUSR | S_IWGRP);
+    }
+
+    return false;
 }
 
 size_t LinuxIOUtilities::read(int fd, std::string &result)

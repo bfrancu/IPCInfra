@@ -28,7 +28,7 @@ public:
     static int64_t availableSize(int fd);
     std::string generateTempFileName(size_t length);
     static bool copyTo(const std::string & original_name, std::string copy_name);
-
+    static bool makefifo(const std::string & pathname);
     static size_t read(int fd, std::string & result);
     static size_t readLine(int fd, std::string & result);
     static size_t readInBuffer(int fd, size_t buffer_len, char *buffer);

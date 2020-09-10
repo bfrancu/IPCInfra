@@ -28,6 +28,7 @@
 #include "Policies/FifoIOPolicy.hpp"
 #include "Devices/Pipes/NamedPipeDevice.hpp"
 #include "Devices/Pipes/NamedPipeFactory.h"
+#include "Devices/DeviceFactory.hpp"
 
 void testDevicePolicies();
 void testSocketDevices();
@@ -57,7 +58,8 @@ struct HasObsErr<Device, std::enable_if_t<is_observable<std::invoke_result_t<dec
 int main()
 {
     using namespace infra;
-    testNamedPipes();
+    auto dev = DeviceFactory<EDeviceType::E_READING_FIFO_DEVICE>::createDevice<UnixResourceHandler, FifoIOPolicy>();
+    //testNamedPipes();
 
 
     //std::cout << HasMemberT_AEIOU<TestDevice>::value << "\n";
@@ -78,9 +80,11 @@ void testNamedPipes()
     NamedPipeFactory factory;
     std::string fifo_path{"/home/bfrancu/Documents/Work/myfifo2"};
 
+    /*
     int flags = 0;
     flags |= O_NONBLOCK;
     flags |= O_RDONLY;
+
 
     if (-1 != ::open(fifo_path.c_str(), flags)){
         std::cout << "open pipe succedeed\n";
@@ -91,8 +95,11 @@ void testNamedPipes()
 //    if (-1 == ::stat("/home/bfrancu/Documents/Work", &f_stats)){
 //        std::cout << "errno " << errno << "\n";
 //    }
-
-     auto original_rd_pipe = factory.getReadingEndpoint<FifoIOPolicy>(fifo_path, false);
+     */
+    //NamedPipeDevice<UnixResourceHandler> pipey;
+     //auto original_rd_pipe = factory.getReadingEndpoint<FifoIOPolicy>(fifo_path, false);
+     auto original_rd_pipe = Host<ReadingNamedPipeDevice<UnixResourceHandler>, FifoIOPolicy>();
+     original_rd_pipe.open(fifo_path, false);
      std::string msg;
      original_rd_pipe.read(msg);
      std::cout << "received: " << msg << "\n";

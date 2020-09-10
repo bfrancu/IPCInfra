@@ -32,6 +32,8 @@ SOURCES += \
     Reactor/EpollDemux.cpp
 
 HEADERS += \
+    Devices/DeviceFactory.hpp \
+    Devices/EmptyDevice.hpp \
     Devices/FileDevice.hpp \
     Devices/Pipes/NamedPipeDevice.hpp \
     Devices/Pipes/NamedPipeFactory.h \

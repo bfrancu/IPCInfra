@@ -7,6 +7,7 @@ namespace infra
 
 enum class EHandleEventResult
 {
+    E_RESULT_METHOD_NOT_IMPLEMENTED = -4,
     E_RESULT_INVALID_REFERENCE = -3,
     E_RESULT_FAILURE = -2,
     E_RESULT_DEFAULT = -1,
@@ -31,3 +32,5 @@ using events_array = std::array<EHandleEvent, MAX_EVENTS_NO>;
 }
 
 #endif // EVENTTYPES_H
+
+

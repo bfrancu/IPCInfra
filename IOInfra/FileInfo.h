@@ -4,7 +4,6 @@
 #include <ctime>
 
 #include <FileIODefinitions.h>
-
 #include <FilePermissions.h>
 
 struct stat;

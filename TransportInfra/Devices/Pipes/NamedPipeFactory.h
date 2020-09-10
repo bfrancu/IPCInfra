@@ -20,7 +20,7 @@ class NamedPipeFactory
 public:
 
     template<template<typename... > typename... Policies>
-    inline decltype(auto) getReadingEndpoint(std::string pathname, bool non_blocking = true){
+    static inline decltype(auto) getReadingEndpoint(std::string pathname, bool non_blocking = true){
         Host<ReadingNamedPipeDevice<UnixResourceHandler>, Policies...> rd_pipe_device{};
         openPipeEndpoint(rd_pipe_device, pathname, non_blocking);
         return rd_pipe_device;
@@ -39,7 +39,7 @@ public:
 
 private:
     template<typename NamedPipe>
-    inline void openPipeEndpoint(NamedPipe & device, std::string pathname, bool non_blocking){
+    static inline void openPipeEndpoint(NamedPipe & device, std::string pathname, bool non_blocking){
         std::cout << "NamedPipeFactory::openPipeEndpoint\n";
         using namespace utils::unx;
         bool new_pipe_created{false};
@@ -57,7 +57,7 @@ private:
         }
     }
 
-    bool makefifo(const std::string & pathname);
+    static bool makefifo(const std::string & pathname);
 
 private:
     static inline std::once_flag sigpipe_ignored_flag{};

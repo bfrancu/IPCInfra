@@ -29,12 +29,15 @@ HEADERS += \
     Host.hpp \
     InetUtils/InetUtilities.h \
     LinuxUtils/LinuxIOUtilities.h \
+    ConversionUtils.h \
     Observable.hpp \
     ObservableStatePublisher.hpp \
     UtilitiesInfra_global.h \
     crtp_base.hpp \
     enum_flag.h \
     randomizer.hpp \
+    shared_lookup_table.hpp \
+    shared_queue.hpp \
     sys_call_eval.h \
     utilities.hpp
 

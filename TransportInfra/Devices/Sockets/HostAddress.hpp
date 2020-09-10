@@ -200,7 +200,6 @@ public:
         initData(address);
     }
 
-
     bool operator==(const HostAddress & other) const{
         return this->toStringReadOnly() == other.toStringReadOnly();
     }

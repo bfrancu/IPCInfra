@@ -16,8 +16,8 @@ struct ConcreteEventHandler : AbstractEventHandler
 {
      T* p_handler;
 
-     explicit ConcreteEventHandler(T & ev_handler) :
-         p_handler(&ev_handler)
+     explicit ConcreteEventHandler(T * p_ev_handler) :
+         p_handler(p_ev_handler)
      {}
 
      EHandleEventResult handleEvent(EHandleEvent event) override{
@@ -28,3 +28,5 @@ struct ConcreteEventHandler : AbstractEventHandler
 
 }  //infra
 #endif // EVENTHANDLERSUBSCRIBER_H
+
+

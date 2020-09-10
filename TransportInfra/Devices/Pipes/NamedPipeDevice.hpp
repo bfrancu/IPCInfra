@@ -10,6 +10,7 @@
 #include "FileStatusFlags.h"
 #include "FileIODefinitions.h"
 #include "utilities.hpp"
+#include "LinuxUtils/LinuxIOUtilities.h"
 
 namespace infra
 {
@@ -22,7 +23,6 @@ class ReadingNamedPipeDevice : public NamedPipeDevice<ResourceHandler>
 {
 public:
     using io_profile = read_only_profile;    
-
     using NamedPipeDevice<ResourceHandler>::NamedPipeDevice;
 
     bool open(bool non_blocking = false){
@@ -65,12 +65,6 @@ public:
     using platform    = typename handler_traits<ResourceHandler>::platform;
 
 public:
-    NamedPipeDevice() {}
-    NamedPipeDevice(std::string pathname) :
-        m_fifo_pathname{std::move(pathname)}
-    {}
-
-public:
     bool isOpen() const { return m_resource_handler.open(); }
 
     void setNonBlocking(bool non_blocking){
@@ -86,6 +80,12 @@ public:
     }
 
     std::string pathname() const { return m_fifo_pathname; }
+
+protected:
+    NamedPipeDevice() {}
+    NamedPipeDevice(std::string pathname) :
+        m_fifo_pathname{std::move(pathname)}
+    {}
 
 protected:
     /*bool open(bool non_blocking = false){
@@ -125,29 +125,35 @@ protected:
     }*/
 
     bool openPipe(const std::string & pathname, io::EAccessMode access_mode, bool non_blocking){
+        using namespace utils::unx;
         std::cout << "NamedPipeDevice<T>::openPipe non blocking: " << std::boolalpha << non_blocking
                   << " path: " << pathname << "\n";
 
         if (pathname.empty() || m_resource_handler.open()) return false;
 
+        bool new_pipe_created{false};
+        if (!LinuxIOUtilities::exists(pathname)){
+            new_pipe_created = LinuxIOUtilities::makefifo(pathname);
+            if (!new_pipe_created) return false;
+        }
+
         int open_flags = io::getAccessModeFlag(access_mode);
         std::cout << "NamedPipeDevice<T>::openPipe open file flags " << open_flags <<"\n";
 
         open_flags |= O_CLOEXEC;
-
         if (non_blocking) open_flags |= O_NONBLOCK;
 
-        if (int fd{::open(pathname.c_str(), open_flags)}; -1 != fd){
+        if (handle_type fd{::open(pathname.c_str(), open_flags)}; -1 != fd){
             std::cout << "NamedPipeDevice<T>::openPipe open::\n";
             m_resource_handler.acquire(fd);
             if (pathname != m_fifo_pathname) m_fifo_pathname = pathname;
+            if (new_pipe_created) ::unlink(pathname.c_str());
             return true;
         }
         else if (utils::to_underlying(io::EFileIOError::E_ERROR_NXIO) == errno){
             std::cerr << "opening writting endpoint for FIFO before the reading endpoint will fail with ENXIO\n";
         }
         else std::cerr << "NamedPipeDevice<T>::openPipe ::open failed with " << errno << "\n";
-
 
         return false;
     }

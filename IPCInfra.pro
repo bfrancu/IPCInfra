@@ -1,6 +1,7 @@
 TEMPLATE = subdirs
 
 SUBDIRS += \
+    Configuration \
     IOInfra \
     UtilitiesInfra \
     TransportInfra \

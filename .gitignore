@@ -1,2 +1,15 @@
 *.so*
 *.[oa]
+
+# needed for YCM vim plugin
+.ycm_extra_conf.py
+
+# exported compile commands - needed for YCM
+compile_commands.json
+
+build/*
+.clangd/*
+
+.qmake*
+
+*Makefile
