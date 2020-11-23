@@ -14,16 +14,19 @@
 namespace infra
 {
 
+namespace config
+{
+
 struct ConfigurationAddress
 {
     ConfigurationAddress() = default;
-    ConfigurationAddress(std::string table_section, std::string section_key) :
-        section(std::move(table_section)),
-        key(std::move(section_key))
+    ConfigurationAddress(std::string_view table_section, std::string_view section_key) :
+        section(table_section),
+        key(section_key)
     {}
 
-    std::string section;
-    std::string key;
+    std::string_view section;
+    std::string_view key;
 };
 
 //TODO ADD MULTITHREADED SUPPORT
@@ -59,6 +62,7 @@ private:
     section_table m_section_table;
 };
 
+} //config
 } //infra
 
 #include "ConfigurationBook.hpp"

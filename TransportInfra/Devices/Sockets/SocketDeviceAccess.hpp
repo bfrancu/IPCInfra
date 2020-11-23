@@ -1,11 +1,12 @@
 #ifndef SOCKETDEVICEACCESS_H
 #define SOCKETDEVICEACCESS_H
 #include <utility>
+#include "Devices/GenericDeviceAccess.hpp"
 
 namespace infra
 {
 
-class SocketDeviceAccess
+class SocketDeviceAccess 
 {
     template<typename Host, typename SocketDevice, typename>
     friend class ConnectionPolicy;
@@ -18,6 +19,11 @@ class SocketDeviceAccess
 
     template<typename Host, typename SocketDevice, typename>
     friend class DatagramIOPolicy;
+
+    /*
+    template<typename>
+    friend class Connector;
+    */
 
     template<typename SocketDevice, typename Handle>
     static void setHandle(SocketDevice & device, Handle handle){ device.setHandle(handle); }
@@ -36,11 +42,9 @@ class SocketDeviceAccess
     static decltype(auto) createSocketHandle() { return SockeDevice::createSocketHandle(); }
 
     template<typename SocketDevice>
-    static decltype(auto) getHandle(const SocketDevice & device){ return device.getHandle(); }
-
+    static decltype(auto) getHandle(const SocketDevice & device) { return device.getHandle(); }
 };
 
-
-}
+} //infra
 
 #endif // SOCKETDEVICEACCESS_H

@@ -21,6 +21,7 @@ template<typename ResourceHandler, typename SocketAddress>
 class SocketDeviceBase
 {
     friend class SocketDeviceAccess;
+    friend class GenericDeviceAccess;
     //friend class PlatformApiProxy;
 
 public:
@@ -33,7 +34,7 @@ public:
         m_state{io::ESocketState::E_STATE_AVAILABLE}
     {}
 
-    io::ESocketState getState() const { return m_state; }    
+    io::ESocketState getState() const { return m_state; }
 
 protected:
     friend class ErrorMemberAccess;
@@ -96,11 +97,11 @@ class SocketDevice<ResourceHandler,
 {    
 
 public:    
-    using handle_type         = typename handler_traits<ResourceHandler>::handle_type;
-    using platform            = typename handler_traits<ResourceHandler>::platform;
-    using socket_domain       = unix_domain;
-    using socket_type         = stream_socket;
-    using socket_address_type = SocketAddress;
+    using handle_type    = typename handler_traits<ResourceHandler>::handle_type;
+    using platform       = typename handler_traits<ResourceHandler>::platform;
+    using socket_domain  = unix_domain;
+    using socket_type    = stream_socket;
+    using address_type   = SocketAddress;
 
 public:
     static handle_type createSocketHandle() { std::cout << "unix stream\n"; return ::socket(PF_UNIX, SOCK_STREAM, 0); }
@@ -126,11 +127,11 @@ class SocketDevice<ResourceHandler,
 {
 
 public:
-    using handle_type         = typename handler_traits<ResourceHandler>::handle_type;
-    using platform            = typename handler_traits<ResourceHandler>::platform;
-    using socket_domain       = unix_domain;
-    using socket_type         = datagram_socket;
-    using socket_address_type = SocketAddress;
+    using handle_type    = typename handler_traits<ResourceHandler>::handle_type;
+    using platform       = typename handler_traits<ResourceHandler>::platform;
+    using socket_domain  = unix_domain;
+    using socket_type    = datagram_socket;
+    using address_type   = SocketAddress;
 
 public:
     static handle_type createSocketHandle() { std::cout << "unix dgram\n"; return ::socket(PF_UNIX, SOCK_DGRAM, 0); }
@@ -156,11 +157,11 @@ class SocketDevice<ResourceHandler,
 {
 
 public:
-    using handle_type         = typename handler_traits<ResourceHandler>::handle_type;
-    using platform            = typename handler_traits<ResourceHandler>::platform;
-    using socket_domain       = ipv4_domain;
-    using socket_type         = datagram_socket;
-    using socket_address_type = SocketAddress;
+    using handle_type    = typename handler_traits<ResourceHandler>::handle_type;
+    using platform       = typename handler_traits<ResourceHandler>::platform;
+    using socket_domain  = ipv4_domain;
+    using socket_type    = datagram_socket;
+    using address_type   = SocketAddress;
 
 public:
     static handle_type createSocketHandle() { std::cout << "ipv4 udp\n"; return ::socket(PF_INET, SOCK_DGRAM, 0); }
@@ -186,11 +187,11 @@ class SocketDevice<ResourceHandler,
 {
 
 public:
-    using handle_type         = typename handler_traits<ResourceHandler>::handle_type;
-    using platform            = typename handler_traits<ResourceHandler>::platform;
-    using socket_domain       = ipv4_domain;
-    using socket_type         = stream_socket;
-    using socket_address_type = SocketAddress;
+    using handle_type    = typename handler_traits<ResourceHandler>::handle_type;
+    using platform       = typename handler_traits<ResourceHandler>::platform;
+    using socket_domain  = ipv4_domain;
+    using socket_type    = stream_socket;
+    using address_type   = SocketAddress;
 
 public:
     static handle_type createSocketHandle() { std::cout << "ipv4 tcp\n"; return ::socket(PF_INET, SOCK_STREAM, 0); }
@@ -216,11 +217,11 @@ class SocketDevice<ResourceHandler,
 {
 
 public:
-    using handle_type         = typename handler_traits<ResourceHandler>::handle_type;
-    using platform            = typename handler_traits<ResourceHandler>::platform;
-    using socket_domain       = ipv6_domain;
-    using socket_type         = datagram_socket;
-    using socket_address_type = SocketAddress;
+    using handle_type    = typename handler_traits<ResourceHandler>::handle_type;
+    using platform       = typename handler_traits<ResourceHandler>::platform;
+    using socket_domain  = ipv6_domain;
+    using socket_type    = datagram_socket;
+    using address_type   = SocketAddress;
 
 public:
     static handle_type createSocketHandle() { std::cout << "ipv6 udp\n"; return ::socket(PF_INET6, SOCK_DGRAM, 0); }
@@ -246,11 +247,11 @@ class SocketDevice<ResourceHandler,
 {
 
 public:
-    using handle_type         = typename handler_traits<ResourceHandler>::handle_type;
-    using platform            = typename handler_traits<ResourceHandler>::platform;
-    using socket_domain       = ipv6_domain;
-    using socket_type         = stream_socket;
-    using socket_address_type = SocketAddress;
+    using handle_type    = typename handler_traits<ResourceHandler>::handle_type;
+    using platform       = typename handler_traits<ResourceHandler>::platform;
+    using socket_domain  = ipv6_domain;
+    using socket_type    = stream_socket;
+    using address_type   = SocketAddress;
 
 public:
     static handle_type createSocketHandle() { std::cout << "ipv6 tcp\n"; return ::socket(PF_INET6, SOCK_STREAM, 0); }

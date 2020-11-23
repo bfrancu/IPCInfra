@@ -29,6 +29,39 @@ enum class EHandleEvent
 inline const unsigned MAX_EVENTS_NO = 6;
 using events_array = std::array<EHandleEvent, MAX_EVENTS_NO>;
 
+template<std::size_t index>
+constexpr void fillArray(events_array & arr)
+{
+    (void) arr;
+}
+
+template<std::size_t index, EHandleEvent event, EHandleEvent... events>
+constexpr void fillArray(events_array & arr)
+{
+   if constexpr(!(std::tuple_size<events_array>::value <= index))
+   {
+        std::get<index>(arr) = event;
+        fillArray<index+1, events...>(arr);
+   }
+}
+
+template<EHandleEvent... events>
+constexpr events_array getArray()
+{
+    events_array arr{
+        EHandleEvent::E_HANDLE_EVENT_NULL,
+        EHandleEvent::E_HANDLE_EVENT_NULL,
+        EHandleEvent::E_HANDLE_EVENT_NULL,
+        EHandleEvent::E_HANDLE_EVENT_NULL,
+        EHandleEvent::E_HANDLE_EVENT_NULL,
+        EHandleEvent::E_HANDLE_EVENT_NULL
+    };
+
+    fillArray<0, events...>(arr);
+    return arr;
+};
+
+
 }
 
 #endif // EVENTTYPES_H

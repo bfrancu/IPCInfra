@@ -9,6 +9,8 @@ INCLUDEPATH += $$PWD/../UtilitiesInfra/
 DEPENDPATH += $$PWD/../UtilitiesInfra/
 INCLUDEPATH += $$PWD/../IOInfra/
 DEPENDPATH += $$PWD/../IOInfra/
+INCLUDEPATH += $$PWD/../Configuration/
+DEPENDPATH += $$PWD/../Configuration/
 
 LIBS += -L../UtilitiesInfra/ -lUtilitiesInfra
 LIBS += -L../IOInfra/ -lIOInfra
@@ -32,10 +34,14 @@ SOURCES += \
     Reactor/EpollDemux.cpp
 
 HEADERS += \
+    Connector.hpp \
     Devices/DeviceFactory.hpp \
+    Devices/DeviceAddressFactory.hpp \
     Devices/EmptyDevice.hpp \
     Devices/FileDevice.hpp \
+    Devices/GenericDeviceAccess.hpp \
     Devices/Pipes/NamedPipeDevice.hpp \
+    Devices/Pipes/NamedPipeDeviceAccess.hpp \
     Devices/Pipes/NamedPipeFactory.h \
     Devices/Sockets/HostAddress.hpp \
     Devices/Sockets/InetSocketAddress.hpp \
@@ -64,6 +70,9 @@ HEADERS += \
     Traits/device_traits.hpp \
     Traits/handler_traits.hpp \
     Traits/socket_traits.hpp \
+    Traits/fifo_traits.hpp \
+    Traits/transport_traits.hpp \
+    ConnectionParameters.hpp \
     TransportInfra_global.h
 
 # Default rules for deployment.

@@ -12,27 +12,29 @@
 #include "crtp_base.hpp"
 #include "utilities.hpp"
 #include "Traits/socket_traits.hpp"
+#include "Traits/fifo_traits.hpp"
 #include "Devices/Sockets/SocketDeviceAccess.hpp"
+#include "Devices/Pipes/NamedPipeDeviceAccess.hpp"
 
 namespace infra
 {
 
-template<typename Host, typename SocketDevice,
-         typename = std::void_t<>>
+template<typename Host, typename Device,
+         typename = void>
 class ConnectionPolicy{};
 
 template<typename Host, typename SocketDevice>
-class ConnectionPolicy<Host, SocketDevice, std::void_t<std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>>
+class ConnectionPolicy<Host, SocketDevice, std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>
         : public crtp_base<ConnectionPolicy<Host, SocketDevice,
-                                            std::void_t<std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>>,
+                                            std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>,
                            Host>
 
 {
-    using handle_type         = typename device_traits<SocketDevice>::handle_type;
-    using socket_address_type = typename socket_traits<SocketDevice>::socket_address_type;
+    using handle_type  = typename device_traits<SocketDevice>::handle_type;
+    using address_type = typename socket_traits<SocketDevice>::address_type;
 
 public:
-    bool connect(const socket_address_type & sock_addr) {
+    bool connect(const address_type & sock_addr, bool non_blocking = false) {
         std::cout << "ConnectionPolicy::connect()\n";
         bool ret{false};
 
@@ -46,6 +48,10 @@ public:
         }
 
         if (io::ESocketState::E_STATE_AVAILABLE != this->asDerived().getState()) return ret;
+
+        if (non_blocking && !sys_call_noerr_eval(::fcntl,
+                                               SocketDeviceAccess::getHandle(this->asDerived()),
+                                               SOCK_NONBLOCK)) return ret; 
 
         std::unique_ptr<sockaddr> p_addr{std::make_unique<sockaddr>()};
         sock_addr.getAddress(*p_addr);
@@ -75,6 +81,37 @@ public:
     }
 
     bool isConnected() const { return io::ESocketState::E_STATE_CONNECTED == this->asDerived().getState(); }
+};
+
+template<typename Host, typename Device>
+class ConnectionPolicy<Host, Device, std::void_t<std::enable_if_t<IsNamedPipeDeviceT<Device>::value &&
+                                                                  std::negation_v<IsSocketDeviceT<Device>>>>>
+                 : public crtp_base<ConnectionPolicy<Host, Device>, Host>
+{
+    using handle_type  = typename device_traits<Device>::handle_type; 
+    using address_type = typename fifo_traits<Device>::address_type; 
+    using io_profile   = typename fifo_traits<Device>::io_profile;
+
+public:
+    bool connect(const address_type & addr, bool non_blocking = false) {
+        return this->asDerived().open(addr, non_blocking);
+    }
+
+    void disconnect() {
+        NamedPipeDeviceAccess::close(this->asDerived());
+    }
+
+    bool shutdown(io::EShutdownHow how) {
+       static constexpr bool read_only = std::is_same_v<io_profile, read_only_profile>;
+       if (io::EShutdownHow::E_SHUTDOWN_WRITE == how && read_only){
+           return false;
+       }
+
+       disconnect();
+       return true;
+    }
+
+    bool isConnected() const { return this->asDerived().isOpen(); }
 };
 
 } // infra

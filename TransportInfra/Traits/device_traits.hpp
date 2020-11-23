@@ -1,9 +1,17 @@
 #ifndef DEVICE_TRAITS_HPP
 #define DEVICE_TRAITS_HPP
 #include "handler_traits.hpp"
+#include "traits_utils.hpp"
 
 namespace infra
 {
+
+DEFINE_HAS_TYPE(address_type);
+
+struct sequential_device{};
+
+struct read_only_profile{};
+struct write_only_profile{};
 
 template<typename T, typename = std::void_t<>>
 struct HasSequentialType : std::false_type

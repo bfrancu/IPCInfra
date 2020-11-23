@@ -10,6 +10,7 @@
 #include <type_traits>
 
 #include "crtp_base.hpp"
+#include "Devices/GenericDeviceAccess.hpp"
 #include "Traits/device_traits.hpp"
 #include "LinuxUtils/LinuxIOUtilities.h"
 
@@ -29,19 +30,19 @@ using GenericIOPolicyT = GenericIOPolicy<Host, Device, std::void_t<std::enable_i
 
 template<typename Host, typename Device>
 class GenericIOPolicy<Host, Device, std::void_t<std::enable_if_t<HasUnixHandleTypeT<Device>::value>>>
-        : public crtp_base<GenericIOPolicy<Host, Device, std::void_t<std::enable_if_t<HasUnixHandleTypeT<Device>::value>>>,
-                                           Host>
+        : public crtp_base<GenericIOPolicy<Host, Device>, Host>
 {
      using handle_type = typename device_traits<Device>::handle_type;
+     using base = crtp_base<GenericIOPolicy<Host, Device>, Host>;
 
 public:
-    size_t read(std::string & result){ return read(this->asDerived().getHandle(), result);}
+    size_t read(std::string & result){ return read(GenericDeviceAccess::getHandle(this->asDerived()), result);}
 
-    size_t readLine(std::string & result){ return readLine(this->asDerived().getHandle(), result); }
+    size_t readLine(std::string & result){ return readLine(GenericDeviceAccess::getHandle(this->asDerived()), result); }
 
-    size_t readInBuffer(size_t buffer_len, char *buffer){ return readInBuffer(this->asDerived().getHandle(), buffer_len, buffer); }
+    size_t readInBuffer(size_t buffer_len, char *buffer){ return readInBuffer(GenericDeviceAccess::getHandle(this->asDerived()), buffer_len, buffer); }
 
-    ssize_t write(const std::string & data) { return write(this->asDerived().getHandle(), data); }
+    ssize_t write(const std::string & data) { return write(GenericDeviceAccess::getHandle(this->asDerived()), data); }
 
 protected:
     static size_t read(handle_type handle, std::string & result){

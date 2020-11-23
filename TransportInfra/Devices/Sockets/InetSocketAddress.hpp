@@ -178,6 +178,7 @@ public:
         const uint8_t *p_remote_ip_addr = reinterpret_cast<const uint8_t*>(&other.m_p_in6_addr->sin6_addr.__in6_u.__u6_addr8);
         uint8_t *p_local_ip_addr = reinterpret_cast<uint8_t*>(&m_p_in6_addr->sin6_addr);
         std::copy(p_remote_ip_addr, p_remote_ip_addr + IPV6_ADDR_SIZE, p_local_ip_addr);
+        return *this;
     }
 
     InetSocketAddress(InetSocketAddress && other) = default;
@@ -191,7 +192,8 @@ public:
           if (!addr.host_address.isValid() || addr.port_number <= 0) return false;
 
           m_p_in6_addr->sin6_port = htons(addr.port_number);
-          return addr.host_address.getAddress(m_p_in6_addr->sin6_addr.__in6_u);
+         // return addr.host_address.getAddress(m_p_in6_addr->sin6_addr.__in6_u);
+          return addr.host_address.getAddress(m_p_in6_addr->sin6_addr.__in6_u.__u6_addr8);
     }
 
     void setAddress(const sockaddr &sock_addr){

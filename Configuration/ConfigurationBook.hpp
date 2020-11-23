@@ -4,6 +4,9 @@
 
 namespace infra
 {
+namespace config
+{
+
     template<typename T>
         bool ConfigurationBook::valueFor(const ConfigurationAddress & addr, T & out_value) const
         {
@@ -45,6 +48,8 @@ namespace infra
 
             return res;
         }
+    
+}//config
 }//infra
 
 #endif

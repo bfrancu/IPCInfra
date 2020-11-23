@@ -11,6 +11,8 @@
 namespace infra
 {
 
+namespace config
+{
 using key_value_container = std::vector<std::pair<std::string_view, std::string_view>>;
 //using section_table = infra::shared_lookup_table<std::string_view, key_value_container, std::unordered_map>;
 using section_table = std::unordered_map<std::string_view, key_value_container>;
@@ -42,5 +44,6 @@ private:
 std::streamoff streamSize(std::istream & f);
 bool readContent(std::istream & f, std::string & result);
 
+} // config
 } // infra
 #endif

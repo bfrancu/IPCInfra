@@ -33,7 +33,7 @@ class StreamIOPolicy<Host,
         : public crtp_base<StreamIOPolicy<Host, SocketDevice>, Host>
 {
     using handle_type         = typename device_traits<SocketDevice>::handle_type;
-    using socket_address_type = typename socket_traits<SocketDevice>::socket_address_type;
+    using address_type = typename socket_traits<SocketDevice>::address_type;
 
 public:
     ssize_t send(std::string_view data, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){

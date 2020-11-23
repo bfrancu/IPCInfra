@@ -41,6 +41,27 @@ struct SubscriberInfo
         event_handler{ev_handler}
     {}
 
+    SubscriberInfo(const SubscriberInfo & other) :
+        registered_to_monitor(other.registered_to_monitor),
+        expired(other.expired),
+        handle(other.handle),
+        subscribed_events_mask(other.subscribed_events_mask),
+        id(other.id),
+        event_handler(other.event_handler)
+    {}
+
+    SubscriberInfo & operator=(const SubscriberInfo & other)
+    {
+        if (this == &other) return *this;
+        registered_to_monitor = other.registered_to_monitor;
+        expired = other.expired;
+        handle = other.handle;
+        subscribed_events_mask = other.subscribed_events_mask;
+        id = other.id;
+        event_handler = other.event_handler;
+        return *this;
+    }
+    
     bool registered_to_monitor;
     bool expired;
     handle_t handle;

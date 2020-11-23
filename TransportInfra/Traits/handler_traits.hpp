@@ -10,11 +10,6 @@ struct unix_platform{};
 
 struct my_custom_platform{};
 
-struct sequential_device{};
-
-struct read_only_profile{};
-struct write_only_profile{};
-
 template <typename T, typename = std::void_t<>>
 struct handler_traits
 {
@@ -61,13 +56,13 @@ struct handler_traits<T, std::void_t<std::enable_if_t<std::is_same_v<unix_platfo
 template<typename handle_type>
 struct default_value
 {
-    handle_type value = handle_type{};
+    static constexpr handle_type value = handle_type{};
 };
 
 template<>
 struct default_value<int>
 {
-     int value = -1;
+     static constexpr int value = -1;
 };
 
 /*

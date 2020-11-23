@@ -17,10 +17,14 @@ bool operator<(const UnixSocketAddress & left, const UnixSocketAddress & other);
 struct UnixAddress
 {
     UnixAddress() = default;
-    UnixAddress(const std::string & path) : pathname{path} {}
+    UnixAddress(std::string path) : pathname{std::move(path)} {}
     std::string pathname;
-    bool operator==(const UnixAddress & other) const { return pathname == other.pathname;}
-    bool operator<(const UnixAddress & other) const { return pathname < other.pathname;}
+    friend bool operator==(const UnixAddress & first, const UnixAddress & second){
+        return first.pathname == second.pathname;
+    }
+    friend bool operator<(const UnixAddress & first, const UnixAddress & second){
+        return first.pathname < second.pathname;
+    }
 };
 
 class UnixSocketAddress

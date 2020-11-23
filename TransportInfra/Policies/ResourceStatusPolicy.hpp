@@ -7,6 +7,7 @@
 #include "FileInfo.h"
 #include "FileStatusFlags.h"
 #include "FilePermissions.h"
+#include "Devices/GenericDeviceAccess.hpp"
 #include "Traits/handler_traits.hpp"
 
 namespace infra
@@ -31,22 +32,22 @@ class ResourceStatusPolicy<Host, Device, std::void_t<std::enable_if_t<HasUnixHan
 public:
     bool isReadable() const{
         using namespace io;
-        FileStatusFlags flags{this->asDerived().getHandle()};
+        FileStatusFlags flags{GenericDeviceAccess::getHandle(this->asDerived())};
         return (EAccessMode::E_READ_ONLY == flags.accessMode() || EAccessMode::E_READ_WRITE == flags.accessMode());
     }
 
     bool isWritable() const{
         using namespace io;
-        FileStatusFlags flags{this->asDerived().getHandle()};
+        FileStatusFlags flags{GenericDeviceAccess::getHandle(this->asDerived())};
         return (EAccessMode::E_WRITE_ONLY == flags.accessMode() || EAccessMode::E_READ_WRITE == flags.accessMode());
     }
 
     inline bool isTty() const {
-        return 1 == ::isatty(this->asDerived().getHandle());
+        return 1 == ::isatty(GenericDeviceAccess::getHandle(this->asDerived()));
     }
 
     inline uint64_t position() const{
-        return ::lseek(this->asDerived().getHandle(), 0, SEEK_CUR);
+        return ::lseek(GenericDeviceAccess::getHandle(this->asDerived()), 0, SEEK_CUR);
     }
 
     inline off_t bytesAvailable() const {
@@ -67,11 +68,11 @@ public:
 
 protected:
     inline io::FileInfo fileInfo() const{
-        return io::FileInfo{this->asDerived().getHandle()};
+        return io::FileInfo{GenericDeviceAccess::getHandle(this->asDerived())};
     }
 
     inline io::FileStatusFlags fileStatusFlags() const{
-        return io::FileStatusFlags{this->asDerived().getHandle()};
+        return io::FileStatusFlags{GenericDeviceAccess::getHandle(this->asDerived())};
     }
 
     /*

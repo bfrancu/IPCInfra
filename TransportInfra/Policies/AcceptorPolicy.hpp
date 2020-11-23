@@ -9,25 +9,27 @@
 #include "crtp_base.hpp"
 #include "sys_call_eval.h"
 #include "Traits/socket_traits.hpp"
+#include "Traits/fifo_traits.hpp"
 #include "Devices/Sockets/SocketDeviceAccess.hpp"
+#include "Devices/Pipes/NamedPipeDeviceAccess.hpp"
 
 namespace infra
 {
 
 template<typename Host, typename SocketDevice,
-         typename = std::void_t<>>
+         typename = void>
 class AcceptorPolicy {};
 
 
 template <typename Host, typename SocketDevice>
-class AcceptorPolicy<Host, SocketDevice, std::void_t<std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>>
+class AcceptorPolicy<Host, SocketDevice, std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>
         : public crtp_base<AcceptorPolicy<Host, SocketDevice>, Host>
 {
-    using handle_type         = typename device_traits<SocketDevice>::handle_type;
-    using socket_address_type = typename socket_traits<SocketDevice>::socket_address_type;
+    using handle_type  = typename device_traits<SocketDevice>::handle_type;
+    using address_type = typename socket_traits<SocketDevice>::address_type;
 
 public:
-    bool bind(const socket_address_type & sock_addr, bool reusable = true){
+    bool bind(const address_type & sock_addr, bool reusable = true){
         if (io::ESocketState::E_STATE_AVAILABLE != this->asDerived().getState()) return false;
 
         setReusableAddressOpt(reusable);
@@ -60,13 +62,15 @@ public:
         return false;
     }
 
-    SocketDevice accept(){
-        return accept(true);
+    SocketDevice accept(bool non_blocking = false){
+        return acceptImpl(non_blocking);
     }
 
+    /*
     SocketDevice acceptNonBlock(){
-        return  accept(false);
+        return accept(true);
     }
+    */
 
     bool isBinded() const { return io::ESocketState::E_STATE_BINDED == this->asDerived().getState(); }
     bool isListening() const { return io::ESocketState::E_STATE_LISTENING == this->asDerived().getState(); }
@@ -95,7 +99,7 @@ public:
     }
 
 protected:
-    SocketDevice accept(bool block) {
+    SocketDevice acceptImpl(bool non_blocking) {
         SocketDevice peer_sock;
         if (io::ESocketState::E_STATE_LISTENING != this->asDerived().getState()) return peer_sock;
 
@@ -103,12 +107,12 @@ protected:
         socklen_t remote_addr_len{sizeof(sockaddr)};
 
         int flags{0};
-        if (!block) flags |= SOCK_NONBLOCK;
+        if (non_blocking) flags |= SOCK_NONBLOCK;
 
         handle_type peer_sock_handle = ::accept4(SocketDeviceAccess::getHandle(this->asDerived()), &remote_addr, &remote_addr_len, flags);
 
         if (handler_traits<SocketDevice>::defaultValue() != peer_sock_handle){
-             socket_address_type peer_sock_addr;
+             address_type peer_sock_addr;
              peer_sock_addr.setAddress(remote_addr);
 
              SocketDeviceAccess::setWorkingAddress(peer_sock, std::move(peer_sock_addr));
@@ -122,6 +126,20 @@ protected:
     }
 };
 
-}
+template<typename Host, typename Device>
+class AcceptorPolicy<Host, Device, std::enable_if_t<IsNamedPipeDeviceT<Device>::value &&
+                                                    std::negation_v<IsSocketDeviceT<Device>>>>
+         : public crtp_base<AcceptorPolicy<Host, Device>, Host>
+{
+    using handle_type  = typename device_traits<Device>::handle_type;
+    using address_type = typename fifo_traits<Device>::handle_type;
+
+public:
+    bool bind(const address_type & addr) { return this->asDerived().setAddress(addr); }
+    bool listen(int) { return true; }
+    bool accept(bool non_blocking = false) { return this->asDerived().open(non_blocking); }
+};
+
+} //infra
 
 #endif // ACCEPTORPOLICY_H

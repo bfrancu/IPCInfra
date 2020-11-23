@@ -39,7 +39,7 @@ void printCollection(const Collection & coll)
 
 int main()
 {
-    using namespace infra;
+    using namespace infra::config;
     std::string config_file{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
     ConfigurationBook book(config_file);
     if(book.init())

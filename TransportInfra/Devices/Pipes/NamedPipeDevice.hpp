@@ -5,21 +5,23 @@
 #include <string>
 #include <iostream>
 
-#include "Traits/handler_traits.hpp"
+#include "Traits/device_traits.hpp"
 #include "sys_call_eval.h"
 #include "FileStatusFlags.h"
 #include "FileIODefinitions.h"
 #include "utilities.hpp"
 #include "LinuxUtils/LinuxIOUtilities.h"
+#include "NamedPipeAddress.h"
+#include "NamedPipeDeviceAccess.hpp"
 
 namespace infra
 {
 
-template<typename ResourceHandler, typename = void>
+template<typename ResourceHandler, typename Address = NamedPipeAddress, typename = void>
 class NamedPipeDevice{};
 
-template<typename ResourceHandler>
-class ReadingNamedPipeDevice : public NamedPipeDevice<ResourceHandler>
+template<typename ResourceHandler, typename Address = NamedPipeAddress>
+class ReadingNamedPipeDevice : public NamedPipeDevice<ResourceHandler, Address>
 {
 public:
     using io_profile = read_only_profile;    
@@ -30,18 +32,21 @@ public:
         return NamedPipeDevice<R>::template open<ReadingNamedPipeDevice<R>>(NamedPipeDevice<R>::m_fifo_pathname, non_blocking);
     }
 
+    bool open(const NamedPipeAddress & addr, bool non_blocking = false){
+        return open(addr.pathname, non_blocking);
+    }
+
     bool open(const std::string & pathname, bool non_blocking = false){
         using R = ResourceHandler;
         return NamedPipeDevice<R>::template open<ReadingNamedPipeDevice<R>>(pathname, non_blocking);
     }
 };
 
-template<typename ResourceHandler>
-class WritingNamedPipeDevice : public NamedPipeDevice<ResourceHandler>
+template<typename ResourceHandler, typename Address = NamedPipeAddress>
+class WritingNamedPipeDevice : public NamedPipeDevice<ResourceHandler, Address>
 {
 public:
     using io_profile = write_only_profile;
-
     using NamedPipeDevice<ResourceHandler>::NamedPipeDevice;
 
     bool open(bool non_blocking = false){
@@ -50,19 +55,25 @@ public:
         return NamedPipeDevice<R>::template open<WritingNamedPipeDevice<R>>(NamedPipeDevice<R>::m_fifo_pathname, non_blocking);
     }
 
+    bool open(const NamedPipeAddress & addr, bool non_blocking = false){
+        return open(addr.pathname, non_blocking);
+    }
+
     bool open(const std::string & pathname, bool non_blocking = false){
         using R = ResourceHandler;
         return NamedPipeDevice<R>::template open<WritingNamedPipeDevice<R>>(pathname, non_blocking);
     }
 };
 
-template<typename ResourceHandler>
-class NamedPipeDevice<ResourceHandler, std::enable_if_t<HasUnixHandleTypeT<ResourceHandler>::value>>
+template<typename ResourceHandler, typename Address>
+class NamedPipeDevice<ResourceHandler, Address, std::enable_if_t<HasUnixHandleTypeT<ResourceHandler>::value>>
 {
-
+    friend class NamedPipeDeviceAccess;
+    friend class GenericDeviceAccess;
 public:
-    using handle_type = typename handler_traits<ResourceHandler>::handle_type;
+    using handle_type  = typename handler_traits<ResourceHandler>::handle_type;
     using platform    = typename handler_traits<ResourceHandler>::platform;
+    using address_type = Address;
 
 public:
     bool isOpen() const { return m_resource_handler.open(); }
@@ -74,12 +85,20 @@ public:
         }
     }
 
+    bool setAddress(const Address & addr) { return setPathname(addr.getAddress()); }
+    bool setPathname(std::string pathname) {
+        if (isOpen()) return false;
+        m_fifo_pathname = std::move(pathname); 
+        return true;
+    }
+
     bool nonBlocking() const {
         io::FileStatusFlags flags{m_resource_handler.getHandle()};
         return flags.nonBlock();
     }
 
     std::string pathname() const { return m_fifo_pathname; }
+    void close() { m_resource_handler.close(); } 
 
 protected:
     NamedPipeDevice() {}
@@ -88,10 +107,6 @@ protected:
     {}
 
 protected:
-    /*bool open(bool non_blocking = false){
-        return open<NamedPipeDevice<ResourceHandler>>(m_fifo_pathname, non_blocking);
-    }*/
-
     template<typename P>
     static bool open(...){
         std::cout << "open ...\n";
@@ -106,23 +121,6 @@ protected:
 
         return openPipe(pathname, access_mode, non_blocking);
     }
-
-    /*
-    bool openRead(const std::string & pathname, bool non_blocking = false){
-        return openPipe(pathname, io::EAccessMode::E_READ_ONLY, non_blocking);
-    }
-
-    bool openRead(bool non_blocking = false){
-        return openPipe(m_fifo_pathname, io::EAccessMode::E_READ_ONLY, non_blocking);
-    }
-
-    bool openWrite(const std::string & pathname, bool non_blocking = false){
-        return openPipe(pathname, io::EAccessMode::E_WRITE_ONLY, non_blocking);
-    }
-
-    bool openWrite(bool non_blocking = false){
-        return openPipe(m_fifo_pathname, io::EAccessMode::E_WRITE_ONLY, non_blocking);
-    }*/
 
     bool openPipe(const std::string & pathname, io::EAccessMode access_mode, bool non_blocking){
         using namespace utils::unx;
@@ -157,6 +155,7 @@ protected:
 
         return false;
     }
+
 
     handle_type getHandle() const { return m_resource_handler.getHandle(); }
 

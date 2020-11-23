@@ -29,12 +29,23 @@
 #include "Devices/Pipes/NamedPipeDevice.hpp"
 #include "Devices/Pipes/NamedPipeFactory.h"
 #include "Devices/DeviceFactory.hpp"
+#include "Devices/DeviceAddressFactory.hpp"
+#include "Connector.hpp"
+#include "Reactor/Reactor.hpp"
+#include "Reactor/EventTypes.h"
+#include "Reactor/EpollDemultiplexer.h"
+
 
 void testDevicePolicies();
 void testSocketDevices();
 void testErrorChangedPolicy();
 void testSocketDatagramIO();
 void testNamedPipes();
+void testDeviceFactory();
+void testPolicyHolder();
+void testGetEventsArray();
+void testGenerateEndpointType();
+void testConnector();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -52,15 +63,74 @@ struct HasObsErr<Device, std::enable_if_t<is_observable<std::invoke_result_t<dec
 {};*/
 
 }
+/*
+class A
+{
+    friend class BaseAccessor;
+
+    void print() const { std::cout << "accessing private member\n"; }
+};
+
+class BaseAccessor
+{
+    //friend class Client;
+protected:
+    template<typename T>
+    static void printMeWhatINeed(const T & a)
+    {
+        a.print();
+    }
+};
+
+class DerivedAccessor : protected BaseAccessor
+{
+    friend class Client;
+    using BaseAccessor::printMeWhatINeed;
+};
+
+class Client
+{
+   public:
+     void test()
+     {
+         A a;
+         //BaseAccessor::printMeWhatINeed(a);
+         DerivedAccessor::printMeWhatINeed(a);
+     }
+};
 
 
-
+int main() {
+    // your code goes here
+    Client cl;
+    cl.test();
+    return 0;
+}
+*/
+struct my_dummy{};
 int main()
 {
     using namespace infra;
-    auto dev = DeviceFactory<EDeviceType::E_READING_FIFO_DEVICE>::createDevice<UnixResourceHandler, FifoIOPolicy>();
-    //testNamedPipes();
+    //Connector<my_dummy> rappin_on;
+    //using policies_pack = PoliciesHolder<typename Connector<my_dummy>::DeviceConnectionPolicy>;
+    //using CustomPipeT = typename policies_pack::AssembledClientT<ReadingNamedPipeDevice<UnixResourceHandler>>;
+    /*
+    Connector<my_dummy>::test<SocketDevice<UnixResourceHandler,
+                 IPV4InetSocketAddress,
+                 ipv4_domain,
+                 datagram_socket>>();
+                 */
+    //std::cout << "is socket device: " << IsSocketDeviceT<socketdevt>::value << "\n";
+    //std::cout << "is fifo device: " << IsNamedPipeDeviceT<devt>::value << "\n";
+    //socket_traits<devt> s;
+    //decltype(std::declval<socket_traits<devt>>()) j{};
+    //testGetEventsArray();
+    testGenerateEndpointType();
 
+    
+
+    //testNamedPipes();
+    //testDeviceFactory();
 
     //std::cout << HasMemberT_AEIOU<TestDevice>::value << "\n";
 
@@ -72,6 +142,85 @@ int main()
 
     //testErrorChangedPolicy();
     return 0;
+}
+
+using PoliciesSet = infra::TemplateTypeList<infra::GenericIOPolicy,
+                                            infra::AcceptorPolicy,
+                                            infra::ErrorChangeAdvertiserPolicy>;
+
+void testPolicyHolder()
+{
+    using namespace infra;
+    using policies_pack = PoliciesHolder<FifoIOPolicy>;
+    using CustomPipeT = typename policies_pack::AssembledClientT<ReadingNamedPipeDevice<UnixResourceHandler>>;
+    auto original_rd_pipe = CustomPipeT();
+
+    using SocketT = SocketDevice<UnixResourceHandler, IPV4InetSocketAddress, ipv4_domain, stream_socket>;
+    using CustomSocketT = typename AssembleClient<PoliciesSet, SocketT>::AssembledClientT;
+    auto origina_rude_boy = CustomSocketT();
+}
+
+void testGenerateEndpointType()
+{
+    using namespace infra;
+    constexpr std::size_t device_tag = static_cast<std::size_t>(EDeviceType::E_IPV6_UDP_SOCKET_DEVICE);
+    using DeviceAddressT = typename DeviceAddressFactory<device_tag>::DeviceAddressT;
+    using DeviceConnParamsT = ConnectionParameters<device_tag, DeviceAddressT>;
+
+    using type_gen = transport_traits<UnixResourceHandler,
+                                                    DeviceConnParamsT,
+                                                    ConnectionPolicy,
+                                                    GenericIOPolicy>;
+    using devicet_t = typename type_gen::device_t;
+    using transport_endpoint_t = typename type_gen::transport_endpoint_t;
+}
+
+void testConnector()
+{
+    using namespace infra;
+    using namespace inet;
+
+    using handleT = int;
+    using ReactorT = Reactor<handleT, demux::EpollDemultiplexer<handleT>>;
+    constexpr std::size_t device_tag = static_cast<std::size_t>(EDeviceType::E_IPV6_UDP_SOCKET_DEVICE);
+    using DeviceAddressT = typename DeviceAddressFactory<device_tag>::DeviceAddressT;
+    using DeviceConnParamsT = ConnectionParameters<device_tag, DeviceAddressT>;
+    using type_gen = transport_traits<UnixResourceHandler, DeviceConnParamsT, ConnectionPolicy, GenericIOPolicy>;
+    using device_t = typename type_gen::device_t;
+
+    ReactorT reactor;
+    Connector<ReactorT> connector(reactor);
+
+    DeviceConnParamsT params;
+    HostAddress<ipv6_domain> host_addr;
+    host_addr.setAddressAny();
+    NetworkAddress<IPV6HostAddr> network_addr{host_addr, 5668};
+    params.addr.setAddress(network_addr);
+    std::function<void(void)> cb = [](){ std::cout << "yey\n"; };
+
+    connector.setup<UnixResourceHandler, DeviceConnParamsT, 
+                    ConnectionPolicy, GenericIOPolicy>(params, cb);
+}
+
+void testDeviceFactory()
+{
+    using namespace infra;
+    auto dev = DeviceFactory<EDeviceType::E_READING_FIFO_DEVICE>::createDevice<UnixResourceHandler, FifoIOPolicy>();
+}
+
+void testGetEventsArray()
+{
+    using namespace infra;
+    events_array my_arr = getArray<EHandleEvent::E_HANDLE_EVENT_IN, EHandleEvent::E_HANDLE_EVENT_PRIO_IN,
+                                   EHandleEvent::E_HANDLE_EVENT_SHUTDOWN, EHandleEvent::E_HANDLE_EVENT_ERR,
+                                   EHandleEvent::E_HANDLE_EVENT_OUT, EHandleEvent::E_HANDLE_EVENT_IN,
+                                   EHandleEvent::E_HANDLE_EVENT_LAST>();
+
+    for (EHandleEvent event : my_arr)
+    {
+        std::cout << "event: " << static_cast<int>(event) << "\n";
+    }
+
 }
 
 void testNamedPipes()
@@ -98,7 +247,10 @@ void testNamedPipes()
      */
     //NamedPipeDevice<UnixResourceHandler> pipey;
      //auto original_rd_pipe = factory.getReadingEndpoint<FifoIOPolicy>(fifo_path, false);
-     auto original_rd_pipe = Host<ReadingNamedPipeDevice<UnixResourceHandler>, FifoIOPolicy>();
+    using policies_pack = PoliciesHolder<FifoIOPolicy>;
+    using CustomPipeT = typename policies_pack::AssembledClientT<ReadingNamedPipeDevice<UnixResourceHandler>>;
+     //auto original_rd_pipe = Host<ReadingNamedPipeDevice<UnixResourceHandler>, FifoIOPolicy>();
+    auto original_rd_pipe = CustomPipeT();
      original_rd_pipe.open(fifo_path, false);
      std::string msg;
      original_rd_pipe.read(msg);
@@ -285,6 +437,7 @@ void testDummyDevice()
         using platform = custom_platform;
         DummyDevice() = default;
         int getHandle() const {return 0;}
+        platform i;
     };
 
     using namespace infra;

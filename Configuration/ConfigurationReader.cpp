@@ -13,6 +13,9 @@ const std::string ENDLINE_SEP{'\n'};
 namespace infra
 {
 
+namespace config
+{
+
 ConfigurationReader::ConfigurationReader() :
     m_file_stream()
 {}
@@ -138,4 +141,5 @@ bool readContent(std::istream &f, std::string &result)
     return true;
 }
 
+} //config
 } //infra

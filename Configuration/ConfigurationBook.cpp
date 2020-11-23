@@ -6,6 +6,9 @@
 namespace infra
 {
 
+namespace config
+{
+
 ConfigurationBook::ConfigurationBook() :
     m_mutex{},
     m_file_content{},
@@ -81,4 +84,5 @@ bool ConfigurationBook::findValueInTable(const ConfigurationAddress & addr, std:
     return false;
 }
 
+}//config
 } //infra

@@ -137,9 +137,9 @@ public:
     }
 
     template<typename EventHandler>
-    subscriber_id subscribe(const events_array & events, EventHandler & ev_handler){
-        ConcreteEventHandler<EventHandler> handler{ev_handler};
-        handle_t handle{ev_handler.getHandle()};
+    subscriber_id subscribe(const events_array & events, handle_t handle, EventHandler & ev_handler){
+        ConcreteEventHandler<EventHandler> handler{&ev_handler};
+        //handle_t handle{ev_handler.getHandle()};
         return subscribeImpl(events, handler, handle);
     }
 

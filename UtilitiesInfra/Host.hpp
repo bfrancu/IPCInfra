@@ -4,18 +4,23 @@
 namespace infra
 {
 
-template<typename Device,
-         template<typename... > typename... Policies>
-class Host : public Device,
-             public Policies<Host<Device, Policies...>, Device>...
+/* TODO
+ * Refactor second Client template argument passed to Plugins
+ * Because I used crtp_base for my policies it introduced an unnecessary constraint
+ * in the higher level abstraction
+ *
+ */
+template<typename Client,
+         template<typename... > typename... Plugins>
+class Host : public Client,
+             public Plugins<Host<Client, Plugins...>, Client>...
 {
 public:
-    using Device::Device;
-    using Device::getHandle;
+    using Client::Client;
 
-    Host() : Device(), Policies<Host, Device>()...
+    Host() : Client(), Plugins<Host, Client>()...
     {}
-
 };
-} //io
+
+} //infra
 #endif // HOST_HPP

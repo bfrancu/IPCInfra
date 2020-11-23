@@ -32,6 +32,7 @@ HEADERS += \
     ConversionUtils.h \
     Observable.hpp \
     ObservableStatePublisher.hpp \
+    PoliciesHolder.hpp \
     UtilitiesInfra_global.h \
     crtp_base.hpp \
     enum_flag.h \
@@ -39,6 +40,7 @@ HEADERS += \
     shared_lookup_table.hpp \
     shared_queue.hpp \
     sys_call_eval.h \
+    traits_utils.hpp \
     utilities.hpp
 
 # Default rules for deployment.

@@ -1,6 +1,7 @@
 #ifndef FIFOIOPOLICY_H
 #define FIFOIOPOLICY_H
 #include "IOPolicy.hpp"
+#include "Devices/Pipes/NamedPipeDeviceAccess.hpp"
 
 namespace infra
 {
@@ -17,28 +18,32 @@ class FifoIOPolicy<Host, Device, std::void_t<std::enable_if_t<std::conjunction_v
 
 public:
     template<typename T = Device>
-    std::enable_if_t<std::is_same_v<read_only_profile, typename T::io_profile>, size_t>
+    std::enable_if_t<std::is_same_v<read_only_profile, typename T::io_profile>, std::size_t>
     read(std::string & result){
-        return GenericIOPolicy<Host, Device>::read(static_cast<const Host &>(*this).getHandle(), result);
+        return GenericIOPolicy<Host, Device>::read(NamedPipeDeviceAccess::getHandle(asDerived()), result);
     }
 
     template<typename T = Device>
-    std::enable_if_t<std::is_same_v<read_only_profile, typename T::io_profile>, size_t>
+    std::enable_if_t<std::is_same_v<read_only_profile, typename T::io_profile>, std::size_t>
     readLine(std::string & result){
-        return GenericIOPolicy<Host, Device>::readLine(static_cast<const Host &>(*this).getHandle(), result);
+        return GenericIOPolicy<Host, Device>::readLine(NamedPipeDeviceAccess::getHandle(asDerived()), result);
     }
 
     template<typename T = Device>
-    std::enable_if_t<std::is_same_v<read_only_profile, typename T::io_profile>, size_t>
-    readInBuffer(size_t buffer_len, char *buffer){
-        return GenericIOPolicy<Host, Device>::readInBuffer(static_cast<const Host &>(*this).getHandle(), buffer_len, buffer);
+    std::enable_if_t<std::is_same_v<read_only_profile, typename T::io_profile>, std::size_t>
+    readInBuffer(std::size_t buffer_len, char *buffer){
+        return GenericIOPolicy<Host, Device>::readInBuffer(NamedPipeDeviceAccess::getHandle(asDerived()), buffer_len, buffer);
     }
 
     template<typename T = Device>
     std::enable_if_t<std::is_same_v<write_only_profile, typename T::io_profile>, ssize_t>
     write1(const std::string & data){
-        return GenericIOPolicy<Host, Device>::write(static_cast<const Host &>(*this).getHandle(), data);
+        return GenericIOPolicy<Host, Device>::write(NamedPipeDeviceAccess::getHandle(asDerived()), data);
     }
+
+protected:
+   Host & asDerived() { return *static_cast<Host*>(this); }
+   const Host & asDerived() const { return *static_cast<Host const *>(this); }
 };
 
 
