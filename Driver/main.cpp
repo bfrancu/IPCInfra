@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include "Policies/UnixResourceHandler.h"
 #include "Host.hpp"
+#include "TypeList.hpp"
 #include "Devices/FileDevice.hpp"
 #include "Policies/SeekableOperations.hpp"
 #include "Policies/ResourceStatusPolicy.hpp"
@@ -23,6 +24,7 @@
 #include <functional>
 #include <utility>
 
+#include "meta.h"
 #include "Policies/StateChangeAdvertiserPolicy.hpp"
 #include "Policies/DatagramIOPolicy.hpp"
 #include "Policies/FifoIOPolicy.hpp"
@@ -31,10 +33,12 @@
 #include "Devices/DeviceFactory.hpp"
 #include "Devices/DeviceAddressFactory.hpp"
 #include "Connector.hpp"
+#include "ConnectorClient.h"
 #include "Reactor/Reactor.hpp"
 #include "Reactor/EventTypes.h"
 #include "Reactor/EpollDemultiplexer.h"
 
+#include "template_typelist.hpp"
 
 void testDevicePolicies();
 void testSocketDevices();
@@ -46,6 +50,8 @@ void testPolicyHolder();
 void testGetEventsArray();
 void testGenerateEndpointType();
 void testConnector();
+void testPackHost();
+void testDeviceTypeErasure();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -111,6 +117,7 @@ struct my_dummy{};
 int main()
 {
     using namespace infra;
+    infra::meta::dispatch::dispatch_main();
     //Connector<my_dummy> rappin_on;
     //using policies_pack = PoliciesHolder<typename Connector<my_dummy>::DeviceConnectionPolicy>;
     //using CustomPipeT = typename policies_pack::AssembledClientT<ReadingNamedPipeDevice<UnixResourceHandler>>;
@@ -125,7 +132,8 @@ int main()
     //socket_traits<devt> s;
     //decltype(std::declval<socket_traits<devt>>()) j{};
     //testGetEventsArray();
-    testGenerateEndpointType();
+    //testGenerateEndpointType();
+    //testDeviceTypeErasure();
 
     
 
@@ -144,9 +152,10 @@ int main()
     return 0;
 }
 
-using PoliciesSet = infra::TemplateTypeList<infra::GenericIOPolicy,
+using PoliciesSet = infra::meta::ttl::template_typelist<infra::GenericIOPolicy,
                                             infra::AcceptorPolicy,
                                             infra::ErrorChangeAdvertiserPolicy>;
+using TransportPoliciesSet = infra::meta::ttl::template_typelist<>;
 
 void testPolicyHolder()
 {
@@ -156,14 +165,28 @@ void testPolicyHolder()
     auto original_rd_pipe = CustomPipeT();
 
     using SocketT = SocketDevice<UnixResourceHandler, IPV4InetSocketAddress, ipv4_domain, stream_socket>;
-    using CustomSocketT = typename AssembleClient<PoliciesSet, SocketT>::AssembledClientT;
-    auto origina_rude_boy = CustomSocketT();
+    //using CustomSocketT = typename AssembleClient<PoliciesSet, SocketT>::AssembledClientT;
+    //auto origina_rude_boy = CustomSocketT();
+}
+
+void testPackHost()
+{
+    using namespace infra;
+    using device_t = ReadingNamedPipeDevice<UnixResourceHandler>;
+    using policies_t = meta::ttl::template_typelist<SeekableOperations, FifoIOPolicy, ConnectionPolicy>;
+    using packed_host_t = PackHostT<device_t, policies_t>;
+
+    using unpacked_device_t = UnpackedClientT<packed_host_t>;
+    using unpacked_policies_t = UnpackedPluginsTList<packed_host_t>;
+    static_assert(std::is_same_v<device_t, unpacked_device_t>);
+    static_assert(std::is_same_v<policies_t, unpacked_policies_t>);
 }
 
 void testGenerateEndpointType()
 {
     using namespace infra;
     constexpr std::size_t device_tag = static_cast<std::size_t>(EDeviceType::E_IPV6_UDP_SOCKET_DEVICE);
+    /*
     using DeviceAddressT = typename DeviceAddressFactory<device_tag>::DeviceAddressT;
     using DeviceConnParamsT = ConnectionParameters<device_tag, DeviceAddressT>;
 
@@ -173,6 +196,20 @@ void testGenerateEndpointType()
                                                     GenericIOPolicy>;
     using devicet_t = typename type_gen::device_t;
     using transport_endpoint_t = typename type_gen::transport_endpoint_t;
+    */
+    using type_gen2 = transport_traits<device_tag,
+                                        UnixResourceHandler,
+                                        PoliciesSet,
+                                        TransportPoliciesSet>;
+    using device_t2 = typename type_gen2::device_t;
+    using device_host_t2 = typename type_gen2::device_host_t;
+    using transport_endpoint_t2 = typename type_gen2::transport_endpoint_t;
+    static_assert(std::is_same_v<SocketDevice<UnixResourceHandler, 
+                                              IPV6InetSocketAddress,
+                                              ipv6_domain,
+                                              datagram_socket>, 
+                                 device_t2>);
+    
 }
 
 void testConnector()
@@ -184,8 +221,8 @@ void testConnector()
     using ReactorT = Reactor<handleT, demux::EpollDemultiplexer<handleT>>;
     constexpr std::size_t device_tag = static_cast<std::size_t>(EDeviceType::E_IPV6_UDP_SOCKET_DEVICE);
     using DeviceAddressT = typename DeviceAddressFactory<device_tag>::DeviceAddressT;
-    using DeviceConnParamsT = ConnectionParameters<device_tag, DeviceAddressT>;
-    using type_gen = transport_traits<UnixResourceHandler, DeviceConnParamsT, ConnectionPolicy, GenericIOPolicy>;
+    using DeviceConnParamsT = ConnectionParameters1<device_tag, DeviceAddressT>;
+    using type_gen = transport_traits2<UnixResourceHandler, DeviceConnParamsT, ConnectionPolicy, GenericIOPolicy>;
     using device_t = typename type_gen::device_t;
 
     ReactorT reactor;
@@ -196,10 +233,36 @@ void testConnector()
     host_addr.setAddressAny();
     NetworkAddress<IPV6HostAddr> network_addr{host_addr, 5668};
     params.addr.setAddress(network_addr);
-    std::function<void(void)> cb = [](){ std::cout << "yey\n"; };
+    std::function<void(std::unique_ptr<infra::AbstractTransportEndpoint>)> cb = [](std::unique_ptr<AbstractTransportEndpoint> ptr){ std::cout << "yey\n"; };
 
     connector.setup<UnixResourceHandler, DeviceConnParamsT, 
                     ConnectionPolicy, GenericIOPolicy>(params, cb);
+}
+
+template<typename Device>
+void printBytesAvailable(infra::Host<Device, infra::ResourceStatusPolicy> *p_dev)
+{
+    std::cout << p_dev->bytesAvailable();
+}
+
+void testDeviceTypeErasure()
+{
+    using namespace infra;
+    using device_t = ReadingNamedPipeDevice<UnixResourceHandler>;
+    using policies_t = meta::ttl::template_typelist<ResourceStatusPolicy>;
+    using packed_host_t = PackHostT<device_t, policies_t>;
+    packed_host_t my_device{};
+    void *placeholder = reinterpret_cast<void*>(&my_device);
+    printBytesAvailable(&my_device);
+    printBytesAvailable(reinterpret_cast<packed_host_t*>(placeholder));
+
+    std::string config_path{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
+    std::string section{"CONNECTION_DETAILS"};
+    ConnectorClient<default_client_traits> dl_client{config_path};
+    dl_client.init(section);
+    int dev_type = dl_client.getDeviceType();
+    std::cout << "Dev type read is " << dev_type << "\n";
+
 }
 
 void testDeviceFactory()

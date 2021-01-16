@@ -14,6 +14,7 @@ DEPENDPATH += $$PWD/../Configuration/
 
 LIBS += -L../UtilitiesInfra/ -lUtilitiesInfra
 LIBS += -L../IOInfra/ -lIOInfra
+LIBS += -L../Configuration/ -lConfiguration
 
 # The following define makes your compiler emit warnings if you use
 # any Qt feature that has been marked deprecated (the exact warnings
@@ -27,6 +28,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    ConnectorClient.cpp \
     Devices/Pipes/NamedPipeFactory.cpp \
     Devices/Sockets/UnixSocketAddress.cpp \
     Policies/UnixResourceHandler.cpp \
@@ -50,6 +52,7 @@ HEADERS += \
     Devices/Sockets/UnixSocketAddress.h \
     Devices/TemporaryFileDevice.hpp \
     Devices/TestDevice.h \
+    Devices/DeviceDefinitions.h \
     Policies/AcceptorPolicy.hpp \
     Policies/ConnectionPolicy.hpp \
     Policies/DatagramIOPolicy.hpp \
@@ -73,6 +76,8 @@ HEADERS += \
     Traits/fifo_traits.hpp \
     Traits/transport_traits.hpp \
     ConnectionParameters.hpp \
+    ConnectorClient.h \
+    TransportEndpoint.hpp \
     TransportInfra_global.h
 
 # Default rules for deployment.

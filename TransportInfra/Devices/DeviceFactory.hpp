@@ -108,6 +108,12 @@ public:
     static constexpr decltype (auto) createDevice(){
         return Host<device_type<ResourceHandler>, Policies...>{};
     }
+
+    template <typename ResourceHandler, typename PolciesList>
+    static constexpr decltype (auto) createDevice(){
+        return PackHostT<device_type<ResourceHandler>, PolciesList>{};
+    }
+
 };
 
 /*

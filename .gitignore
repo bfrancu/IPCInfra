@@ -7,6 +7,8 @@
 # exported compile commands - needed for YCM
 compile_commands.json
 
+*.pro.user
+
 build/*
 .clangd/*
 

@@ -132,7 +132,7 @@ class AcceptorPolicy<Host, Device, std::enable_if_t<IsNamedPipeDeviceT<Device>::
          : public crtp_base<AcceptorPolicy<Host, Device>, Host>
 {
     using handle_type  = typename device_traits<Device>::handle_type;
-    using address_type = typename fifo_traits<Device>::handle_type;
+    using address_type = typename fifo_traits<Device>::address_type;
 
 public:
     bool bind(const address_type & addr) { return this->asDerived().setAddress(addr); }

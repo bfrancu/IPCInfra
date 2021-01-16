@@ -28,19 +28,16 @@ const char *const WRITE_PROFILE_VAL{"write"};
 
 }
 
+namespace infra
+{
+
 void toLower(std::string & value){
     std::for_each(value.begin(), value.end(), 
                   [] (char & ch) { ch = std::tolower(ch); });
 }
 
-void ConnectorClient::init(std::string_view section)
-{
-    infra::config::ConfigurationBook book{config_file};
-    if (!book.init()) return;
-    infra::EDeviceType dev_type = getDeviceType(book, section);
-}
 
-ConnectorClient::SockTypeMap ConnectorClient::SocketConfigInfoToType{
+DeviceTypeReader::SockTypeMap DeviceTypeReader::SocketConfigInfoToType{
     {SOCKET_TYPE_VAL_DGRAM, { {SOCKET_DOMAIN_VAL_IPV4,
                                infra::EDeviceType::E_IPV4_UDP_SOCKET_DEVICE},
                               {SOCKET_DOMAIN_VAL_IPV6,
@@ -57,7 +54,7 @@ ConnectorClient::SockTypeMap ConnectorClient::SocketConfigInfoToType{
                              }}
 };
 
-infra::EDeviceType ConnectorClient::getDeviceType(const infra::config::ConfigurationBook & book,
+std::size_t DeviceTypeReader::getDeviceType(const infra::config::ConfigurationBook & book,
                                                   std::string_view section)
 {
     using namespace infra;
@@ -72,15 +69,17 @@ infra::EDeviceType ConnectorClient::getDeviceType(const infra::config::Configura
     toLower(dev_type);
     if (DEV_TYPE_VAL_SOCKET == dev_type) {
         ret_dev = getSocketDeviceType(book, section);
+        std::cout << "dev type is socket\n";
     }
     else if (DEV_TYPE_VAL_PIPE == dev_type) {
         ret_dev = getPipeDeviceType(book, section);
+        std::cout << "dev type is fifo\n";
     }
 
-    return ret_dev;
+    return static_cast<std::size_t>(ret_dev);
 }
 
-infra::EDeviceType ConnectorClient::getSocketDeviceType(const infra::config::ConfigurationBook & book,
+infra::EDeviceType DeviceTypeReader::getSocketDeviceType(const infra::config::ConfigurationBook & book,
                                                         std::string_view section)
 {
     using namespace infra;
@@ -90,28 +89,40 @@ infra::EDeviceType ConnectorClient::getSocketDeviceType(const infra::config::Con
     std::string socket_dom;
     std::string socket_type;
     if (!(book.valueFor(ConfigurationAddress{section, SOCKET_TYPE_KEY}, socket_type))){
+        std::cerr << "Could not find socket type key\n";
         return ret_dev;
     }
     if (!(book.valueFor(ConfigurationAddress{section, SOCKET_DOMAIN_KEY}, socket_dom))){
+        std::cerr << "Could not find socket domain key\n";
         return ret_dev;
     }
 
     toLower(socket_dom);
     toLower(socket_type);
+
+    std::cout << "socket domain is " << socket_dom << "\n";
+    std::cout << "socket type is " << socket_type << "\n";
+
     if (auto sock_type_map_iter = SocketConfigInfoToType.find(socket_type);
             SocketConfigInfoToType.end() != sock_type_map_iter)
     {
+        std::cout << "socket type found \n";
         auto & sock_domain_map_iter = sock_type_map_iter->second;
         if (auto domain_to_type_iter = sock_domain_map_iter.find(socket_dom);
                 sock_domain_map_iter.end() != domain_to_type_iter)
         {
             ret_dev = domain_to_type_iter->second;
         }
+        else
+        {
+            std::cerr << "no entry in map for device type\n";
+        }
     }
+    std::cout << "return dev type: " << ret_dev << "\n";
     return ret_dev;
 }
 
-infra::EDeviceType ConnectorClient::getPipeDeviceType(const infra::config::ConfigurationBook & book,
+infra::EDeviceType DeviceTypeReader::getPipeDeviceType(const infra::config::ConfigurationBook & book,
                                                       std::string_view section)
 {
     using namespace infra;
@@ -133,3 +144,5 @@ infra::EDeviceType ConnectorClient::getPipeDeviceType(const infra::config::Confi
 
     return ret_dev;
 }
+
+} //infra

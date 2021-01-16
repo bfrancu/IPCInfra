@@ -9,15 +9,22 @@ INCLUDEPATH += $$PWD/../TransportInfra/
 DEPENDPATH += $$PWD/../TransportInfra/
 INCLUDEPATH += $$PWD/../UtilitiesInfra/
 DEPENDPATH += $$PWD/../UtilitiesInfra/
+INCLUDEPATH += $$PWD/../Configuration/
+DEPENDPATH += $$PWD/../Configuration/
 
 
 LIBS += -L../IOInfra/ -lIOInfra
 LIBS += -L../TransportInfra/ -lTransportInfra
 LIBS += -L../UtilitiesInfra/ -lUtilitiesInfra
+LIBS += -L../Configuration/ -lConfiguration
 
 QMAKE_CXXFLAGS += -pthread
 LIBS += -lpthread
 
 SOURCES += \
-        main.cpp
+        main.cpp \
+        meta.cpp
+
+HEADERS += \
+    meta.h
 

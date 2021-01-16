@@ -12,18 +12,5 @@ namespace infra
        using AssembledClientT = Host<Client, Policies...>;
    };
 
-   template<template<typename... > typename... Policies>
-   struct TemplateTypeList
-   {};
-
-   template<typename TList, typename Client>
-   struct AssembleClient;
-
-   template<template<typename...> typename... Policies,
-            typename Client>
-   struct AssembleClient<TemplateTypeList<Policies...>, Client>
-   {
-       using AssembledClientT = Host<Client, Policies...>;
-   };
 } //infra
 #endif

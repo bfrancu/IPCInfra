@@ -14,7 +14,7 @@ class GenericDeviceAccess
     template<typename Host, typename Device, typename>
     friend class ResourceStatusPolicy;
 
-    template<typename>
+    template<typename, typename>
     friend class Connector;
 
     template<typename Device>
