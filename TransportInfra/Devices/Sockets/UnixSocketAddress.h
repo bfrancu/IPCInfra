@@ -48,6 +48,7 @@ public:
     void setAddress(const sockaddr &sock_addr);
     void getAddress(address_type & out_addr) const;
     void getAddress(sockaddr & out_addr) const;
+    inline bool empty() const { return m_address.pathname.empty(); }
     //UnixAddress getDomainSpecificAddress() const {return m_address};
 
     inline static size_t getAddressLength() {

@@ -16,6 +16,7 @@
 //#include "Policies/ErrorChangeAdvertiserPolicy.h"
 #include "Devices/Sockets/UnixSocketAddress.h"
 #include "Devices/Sockets/HostAddress.hpp"
+#include "Reactor/EpollDemultiplexer.h"
 #include "Devices/Sockets/InetSocketAddress.hpp"
 #include "sys_call_eval.h"
 //#include "sys_call_err_eval.hpp"
@@ -25,6 +26,7 @@
 #include <utility>
 
 #include "meta.h"
+#include "enum_flag.h"
 #include "Policies/StateChangeAdvertiserPolicy.hpp"
 #include "Policies/DatagramIOPolicy.hpp"
 #include "Policies/FifoIOPolicy.hpp"
@@ -52,6 +54,7 @@ void testGenerateEndpointType();
 void testConnector();
 void testPackHost();
 void testDeviceTypeErasure();
+void testEnumFlags();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -117,7 +120,8 @@ struct my_dummy{};
 int main()
 {
     using namespace infra;
-    infra::meta::dispatch::dispatch_main();
+    //infra::meta::dispatch::dispatch_main();
+    testEnumFlags();
     //Connector<my_dummy> rappin_on;
     //using policies_pack = PoliciesHolder<typename Connector<my_dummy>::DeviceConnectionPolicy>;
     //using CustomPipeT = typename policies_pack::AssembledClientT<ReadingNamedPipeDevice<UnixResourceHandler>>;
@@ -164,7 +168,7 @@ void testPolicyHolder()
     using CustomPipeT = typename policies_pack::AssembledClientT<ReadingNamedPipeDevice<UnixResourceHandler>>;
     auto original_rd_pipe = CustomPipeT();
 
-    using SocketT = SocketDevice<UnixResourceHandler, IPV4InetSocketAddress, ipv4_domain, stream_socket>;
+    //using SocketT = SocketDevice<UnixResourceHandler, IPV4InetSocketAddress, ipv4_domain, stream_socket>;
     //using CustomSocketT = typename AssembleClient<PoliciesSet, SocketT>::AssembledClientT;
     //auto origina_rude_boy = CustomSocketT();
 }
@@ -186,6 +190,7 @@ void testGenerateEndpointType()
 {
     using namespace infra;
     constexpr std::size_t device_tag = static_cast<std::size_t>(EDeviceType::E_IPV6_UDP_SOCKET_DEVICE);
+    (void) device_tag;
     /*
     using DeviceAddressT = typename DeviceAddressFactory<device_tag>::DeviceAddressT;
     using DeviceConnParamsT = ConnectionParameters<device_tag, DeviceAddressT>;
@@ -196,19 +201,20 @@ void testGenerateEndpointType()
                                                     GenericIOPolicy>;
     using devicet_t = typename type_gen::device_t;
     using transport_endpoint_t = typename type_gen::transport_endpoint_t;
-    */
     using type_gen2 = transport_traits<device_tag,
                                         UnixResourceHandler,
                                         PoliciesSet,
-                                        TransportPoliciesSet>;
+                                        TransportPoliciesSet,
+                                        demux::EpollDemultiplexer<int>>;
     using device_t2 = typename type_gen2::device_t;
-    using device_host_t2 = typename type_gen2::device_host_t;
-    using transport_endpoint_t2 = typename type_gen2::transport_endpoint_t;
+    //using device_host_t2 = typename type_gen2::device_host_t;
+    //using transport_endpoint_t2 = typename type_gen2::transport_endpoint_t;
     static_assert(std::is_same_v<SocketDevice<UnixResourceHandler, 
                                               IPV6InetSocketAddress,
                                               ipv6_domain,
                                               datagram_socket>, 
                                  device_t2>);
+    */
     
 }
 
@@ -222,8 +228,8 @@ void testConnector()
     constexpr std::size_t device_tag = static_cast<std::size_t>(EDeviceType::E_IPV6_UDP_SOCKET_DEVICE);
     using DeviceAddressT = typename DeviceAddressFactory<device_tag>::DeviceAddressT;
     using DeviceConnParamsT = ConnectionParameters1<device_tag, DeviceAddressT>;
-    using type_gen = transport_traits2<UnixResourceHandler, DeviceConnParamsT, ConnectionPolicy, GenericIOPolicy>;
-    using device_t = typename type_gen::device_t;
+    //using type_gen = transport_traits2<UnixResourceHandler, DeviceConnParamsT, ConnectionPolicy, GenericIOPolicy>;
+    //using device_t = typename type_gen::device_t;
 
     ReactorT reactor;
     Connector<ReactorT> connector(reactor);
@@ -233,10 +239,9 @@ void testConnector()
     host_addr.setAddressAny();
     NetworkAddress<IPV6HostAddr> network_addr{host_addr, 5668};
     params.addr.setAddress(network_addr);
-    std::function<void(std::unique_ptr<infra::AbstractTransportEndpoint>)> cb = [](std::unique_ptr<AbstractTransportEndpoint> ptr){ std::cout << "yey\n"; };
+    //std::function<void(std::unique_ptr<infra::AbstractTransportEndpoint>)> cb = [](){ (void) ptr; std::cout << "yey\n"; };
 
-    connector.setup<UnixResourceHandler, DeviceConnParamsT, 
-                    ConnectionPolicy, GenericIOPolicy>(params, cb);
+    //connector.setup<UnixResourceHandler, DeviceConnParamsT,  ConnectionPolicy, GenericIOPolicy>(params, cb);
 }
 
 template<typename Device>
@@ -248,9 +253,11 @@ void printBytesAvailable(infra::Host<Device, infra::ResourceStatusPolicy> *p_dev
 void testDeviceTypeErasure()
 {
     using namespace infra;
+    using handle_t = int;
     using device_t = ReadingNamedPipeDevice<UnixResourceHandler>;
     using policies_t = meta::ttl::template_typelist<ResourceStatusPolicy>;
     using packed_host_t = PackHostT<device_t, policies_t>;
+    using reactor_t = Reactor<handle_t, demux::EpollDemultiplexer<handle_t>>;
     packed_host_t my_device{};
     void *placeholder = reinterpret_cast<void*>(&my_device);
     printBytesAvailable(&my_device);
@@ -258,7 +265,9 @@ void testDeviceTypeErasure()
 
     std::string config_path{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
     std::string section{"CONNECTION_DETAILS"};
-    ConnectorClient<default_client_traits> dl_client{config_path};
+    reactor_t reactor;
+    Connector<reactor_t> connector(reactor);
+    ConnectorClient<default_client_traits> dl_client{connector, config_path};
     dl_client.init(section);
     int dev_type = dl_client.getDeviceType();
     std::cout << "Dev type read is " << dev_type << "\n";
@@ -289,7 +298,7 @@ void testGetEventsArray()
 void testNamedPipes()
 {
     using namespace infra;
-    NamedPipeFactory factory;
+    //NamedPipeFactory factory;
     std::string fifo_path{"/home/bfrancu/Documents/Work/myfifo2"};
 
     /*
@@ -324,7 +333,7 @@ void testNamedPipes()
 //              << "\n";
 
 //    WritingNamedPipeDevice<UnixResourceHandler> writing_pipe(fifo_path);
-//    std::cout << std::boolalpha << writing_pipe.open(true)
+//    std::cout << std::boolalpha << writing_pipe.open(true)Impl
 //              << "\n";
 }
 
@@ -426,6 +435,27 @@ void testSocketDatagramIO()
 
 }
 
+void testEnumFlags()
+{
+    using namespace infra;
+    auto event = EHandleEvent::E_HANDLE_EVENT_IN;
+    auto combined_events = enum_flag(EHandleEvent::E_HANDLE_EVENT_IN) |
+                           enum_flag(EHandleEvent::E_HANDLE_EVENT_ERR);
+
+    std::cout << "combined events: " << static_cast<int>(combined_events) << "\n";
+    std::cout << "E_HANDLE_EVENT_IN: " << static_cast<int>(EHandleEvent::E_HANDLE_EVENT_IN) << "\n";
+    std::cout << "E_HANDLE_EVENT_ERR: " << static_cast<int>(EHandleEvent::E_HANDLE_EVENT_ERR) << "\n";
+
+    if (enum_flag(event) & combined_events)
+    {
+        std::cout << "event is part of combined events\n";
+    }
+    else
+    {
+        std::cout << "event is not part of combined events\n";
+    }
+}
+
 void testSocketDevices()
 {
     using namespace infra;
@@ -440,6 +470,12 @@ void testSocketDevices()
                  ipv4_domain,
                  stream_socket>,
             AcceptorPolicy> ipv4_stream_sock{};
+
+    Host<SocketDevice<UnixResourceHandler,
+                 IPV4InetSocketAddress,
+                 ipv4_domain,
+                 stream_socket>,
+            ConnectionPolicy> ipv4_client_sock{};
 
     SocketDevice<UnixResourceHandler,
                  IPV4InetSocketAddress,
@@ -461,6 +497,7 @@ void testSocketDevices()
     IPV4InetSocketAddress inet_addr;
     inet_addr.setAddress(network_addr);
 
+    ipv4_client_sock.connect(inet_addr);
 
     std::cout << "state before binding: " <<  ipv4_stream_sock.getState() << "\n";
     if (ipv4_stream_sock.bind(inet_addr)){

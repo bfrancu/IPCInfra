@@ -53,6 +53,7 @@ struct handler_traits<T, std::void_t<std::enable_if_t<std::is_same_v<unix_platfo
     }
 };
 
+/*
 template<typename handle_type>
 struct default_value
 {
@@ -64,6 +65,7 @@ struct default_value<int>
 {
      static constexpr int value = -1;
 };
+*/
 
 /*
 template<typename T, typename = std::void_t<>>

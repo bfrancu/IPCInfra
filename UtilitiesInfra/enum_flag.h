@@ -3,6 +3,8 @@
 
 #include <type_traits>
 
+namespace infra
+{
 template <typename T>
 class enum_flag
 {
@@ -19,6 +21,13 @@ public:
     {
         return  m_flag_value;
     }
+
+    /*
+    operator bool() const
+    {
+        return 0 != m_flag_value;
+    }
+    */
 
     enum_flag<T> operator &(const enum_flag<T> & other) const
     {
@@ -97,5 +106,7 @@ public:
 private:
     int m_flag_value;
 };
+
+} //infra
 
 #endif // ENUM_FLAG_H

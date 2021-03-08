@@ -9,6 +9,8 @@ compile_commands.json
 
 *.pro.user
 
+*.vim
+
 build/*
 .clangd/*
 

@@ -6,6 +6,7 @@
 #include <algorithm>
 //#include <unordered_map>
 
+#include "default_traits.hpp"
 #include "SubscriberInfo.hpp"
 #include "shared_lookup_table.hpp"
 #include "shared_queue.hpp"
@@ -17,8 +18,13 @@ template<typename handle_t, typename DemultiplexPolicy>
 class Reactor
 {
 
+public:
     using SubscriberInfoT = SubscriberInfo<handle_t>;
-    using DemuxTable      = shared_lookup_table<subscriber_id, SubscriberInfoT, std::unordered_map>;
+    using SubscriberID    = subscriber_id;
+    using DemuxTable      = shared_lookup_table<SubscriberID, SubscriberInfoT, std::unordered_map>;
+    using Handle          = handle_t;
+
+    static constexpr SubscriberID NULL_SUBSCRIBER_ID{0};
 
 public:
     Reactor() :
@@ -114,7 +120,7 @@ public:
         m_processing_ended = true;
 
         lck.unlock();
-        EventNotification<handle_t> last_event_notification{default_value<handle_t>::value, 0, true};
+        EventNotification<handle_t> last_event_notification{meta::traits::default_value<handle_t>::value, 0, true};
         m_event_queue.push(std::move(last_event_notification));
 
         if (m_demux_wait_thread.joinable()){
@@ -137,13 +143,13 @@ public:
     }
 
     template<typename EventHandler>
-    subscriber_id subscribe(const events_array & events, handle_t handle, EventHandler & ev_handler){
+    SubscriberID subscribe(const events_array & events, handle_t handle, EventHandler & ev_handler){
         ConcreteEventHandler<EventHandler> handler{&ev_handler};
         //handle_t handle{ev_handler.getHandle()};
         return subscribeImpl(events, handler, handle);
     }
 
-    bool unsubscribe(subscriber_id id){
+    bool unsubscribe(SubscriberID id){
         m_subscribers_table.remove_if([](const auto & pair){
             return pair.second.expired || !pair.second.registered_to_monitor;});
 
@@ -161,14 +167,14 @@ public:
     }
 
 protected:
-    subscriber_id subscribeImpl(const events_array & events, AbstractEventHandler & handler, handle_t handle){
+    SubscriberID subscribeImpl(const events_array & events, AbstractEventHandler & handler, handle_t handle){
         uint32_t subscription_mask = m_demux_impl.getEventsMask(events);
         bool find_res{false};
         bool already_subscribed{false};
-        subscriber_id sub_id{NULL_SUBSCRIBER_ID};
+        SubscriberID sub_id{NULL_SUBSCRIBER_ID};
 
         do{
-            sub_id = m_demux_impl.getKeyfor(handle);
+            sub_id = m_demux_impl.getKeyFor(handle);
             auto [sub_info, res] = m_subscribers_table.value_for(sub_id);
             find_res = res;
             if (find_res && handle == sub_info.handle){
@@ -202,13 +208,13 @@ protected:
         {
             EventNotification<handle_t> event_notification;
             m_event_queue.wait_and_pop(event_notification);
-            subscriber_id sub_id = m_demux_impl.getKeyfor(event_notification.handle);
+            SubscriberID sub_id = m_demux_impl.getKeyFor(event_notification.handle);
             auto [sub_info, value_found] = m_subscribers_table.value_for(sub_id);
             if (value_found){
                  events_array events = m_demux_impl.getEventsFromMask(event_notification.notified_events_mask);
 
                  for (auto event : events){
-                     EHandleEventResult res = sub_info.event_handler.handleEvent(event);
+                     EHandleEventResult res = sub_info.event_handler.handleEvent(sub_id, event);
                      if (EHandleEventResult::E_RESULT_INVALID_REFERENCE == res){
                          sub_info.expired = true;
                          break;

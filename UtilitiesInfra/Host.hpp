@@ -1,6 +1,7 @@
 #ifndef HOST_HPP
 #define HOST_HPP
 #include "template_typelist.hpp"
+#include "policies_initializer.hpp"
 
 namespace infra
 {
@@ -10,11 +11,18 @@ template<typename Client,
 class Host : public Client,
              public Plugins<Host<Client, Plugins...>, Client>...
 {
+    using ConcretePluginsTList = meta::tl::typelist<Plugins<Host<Client, Plugins...>, Client>...>;
 public:
     using Client::Client;
 
     Host() : Client(), Plugins<Host, Client>()...
     {}
+
+    template<typename... Args>
+    bool init(Args&&... args)
+    {
+        return initDispatch<ConcretePluginsTList>(*this, std::forward<Args>(args)...);
+    }
 };
 
 template<typename Client, typename TList>

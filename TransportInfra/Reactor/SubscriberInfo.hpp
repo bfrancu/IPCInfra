@@ -3,18 +3,18 @@
 
 #include <stdint.h>
 
+#include "default_traits.hpp"
 #include"Traits/handler_traits.hpp"
 #include "EventHandlerSubscriber.h"
 
 namespace infra
 {
 
-using subscriber_id = unsigned long;
-inline constexpr subscriber_id NULL_SUBSCRIBER_ID{0};
+//constexpr subscriber_id NULL_SUBSCRIBER_ID{0};
 
 struct DummyEventHandler : AbstractEventHandler
 {
-    EHandleEventResult handleEvent(EHandleEvent event) override{
+    EHandleEventResult handleEvent(subscriber_id, EHandleEvent event) override{
         (void) event;
         return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
     }
@@ -26,7 +26,7 @@ struct SubscriberInfo
     SubscriberInfo() :
         registered_to_monitor{false},
         expired{false},
-        handle{default_value<handle_t>::value},
+        handle{meta::traits::default_value<handle_t>::value},
         subscribed_events_mask{0},
         id{0},
         event_handler{dummy_handler}
@@ -35,7 +35,7 @@ struct SubscriberInfo
     SubscriberInfo(uint32_t events_mask, subscriber_id id, AbstractEventHandler & ev_handler) :
         registered_to_monitor{false},
         expired{false},
-        handle{default_value<handle_t>::value},
+        handle{meta::traits::default_value<handle_t>::value},
         subscribed_events_mask{events_mask},
         id{id},
         event_handler{ev_handler}

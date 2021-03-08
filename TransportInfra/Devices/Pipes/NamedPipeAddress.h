@@ -29,6 +29,7 @@ struct NamedPipeAddress
     }
 
     address_type getAddress() const { return pathname; }
+    bool empty() const { return pathname.empty(); }
 
     address_type pathname;
 };

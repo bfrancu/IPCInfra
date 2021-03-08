@@ -1,9 +1,10 @@
 #ifndef CONNECTOR_HPP
 #define CONNECTOR_HPP
 #include <functional>
-#include <vector>
+#include <unordered_map>
 #include <memory>
 
+#include "enum_flag.h"
 #include "Reactor/SubscriberInfo.hpp"
 #include "Reactor/EventTypes.h"
 #include "Devices/DeviceFactory.hpp"
@@ -11,11 +12,12 @@
 #include "Traits/transport_traits.hpp"
 #include "PoliciesHolder.hpp"
 #include "TransportEndpoint.hpp"
+#include "pointer_traits.hpp"
 
 namespace infra
 {
 
-    using CompletionCallback = std::function<void(std::unique_ptr<AbstractTransportEndpoint>)>;
+    using CompletionCallback = std::function<void()>;
 
     /* TODO
      *
@@ -26,145 +28,113 @@ namespace infra
     template<typename Demultiplexer, typename Enable = void>
     class Connector
     {
-        public:
+
+     public:
             Connector(Demultiplexer & eventDemultiplexer) :
                 m_demultiplexer(eventDemultiplexer)
         {}
 
-        public:
-            /*
-            template<typename Device>
-            void test()
-            {
-                Device dev;
-                //auto h = dev.getHandle();
-                auto h = GenericDeviceAccess::getHandle(dev);
-            }
-            */
-        // can't use a static method as we need a class local cache
-        // to manage subscriptions to the epoll/select mechanisms
-        template<typename ResourceHandler,
-                 typename ConnectionParams,
-                 template<typename...> typename DeviceConnectionPolicy,
-                 template<typename...> typename... DevicePolicies>
-        void setup(const ConnectionParams &params, CompletionCallback & cb)
+        struct ConnectorClientSubscriber;
+        using CompletionCallback = void(*)(std::unique_ptr<ITransportEndpoint>&&);
+        using SubscriberID = typename Demultiplexer::SubscriberID;
+        using SubscribersMap = std::unordered_map<SubscriberID, ConnectorClientSubscriber>;
+        using SubscriberIter = typename SubscribersMap::iterator;
+        using Listener = Demultiplexer;
+
+        struct ConnectorClientSubscriber
         {
-            /*
-             * TODO
-             * Delegate this type identification to some trait class
-             */
-            /*
-            using device_t = typename DeviceFactory<params.dev_type>::template device_type<ResourceHandler>;
-            using handle_t = typename device_t::handle_type;
-            using device_host_t = Host<device_t, DeviceConnectionPolicy, DevicePolicies...>;
-            using policies_holder_t = typename ConnectionParams::transport_policies_pack;
-            using transport_endpoint_t = typename policies_holder_t::template AssembledClientT<TransportEndpoint<device_host_t>>;
+            ConnectorClientSubscriber() = default;
+            ConnectorClientSubscriber(std::unique_ptr<ITransportEndpoint> && p_endpoint, CompletionCallback cb) :
+                p_wrapped_endpoint{std::move(p_endpoint)},
+                completion_callback{cb}
+            {}
 
-            using traits_generator = transport_traits<ResourceHandler, ConnectionParams,
-                                                      DeviceConnectionPolicy, DevicePolicies...>;
-            using handle_t = typename traits_generator::handle_t;
-            using device_host_t = typename traits_generator::device_host_t;
-            using transport_endpoint_t = typename traits_generator::transport_endpoint_t;
+            std::unique_ptr<ITransportEndpoint> p_wrapped_endpoint{nullptr};
+            CompletionCallback completion_callback{nullptr};
+        };
 
-            transport_endpoint_t endpoint;
-            endpoint.setDevice(DeviceFactory<params.dev_type>::template createDevice<ResourceHandler, 
-                                                                  DeviceConnectionPolicy,
-                                                                  DevicePolicies...>());
-
-            device_host_t & device = endpoint.getDevice();
-            */
-            /* TODO
-             *
-             * call device.Connect async with DeviceAddress as param
-             * get the handle from the Device and register it with the EventDemultiplexer
-             * after the connection succeeds and it the Connector is notified
-             * create the TransportEndpoint and wrap it over the device
-             * connect the callbacks and register it to the EventDemultiplexer
-             * call the CompletionCallback
-             */
-            /*
-            if (!device.connect(params.addr, true))
-            {
-                return;
-            }
-
-            //handle_t handle = device.getHandle();
-            handle_t handle = GenericDeviceAccess::getHandle(device);
-            events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
-
-            if (subscriber_id id = m_demultiplexer.subscribe(subscribed_events, handle, *this); NULL_SUBSCRIBER_ID != id)
-            {
-               m_active_subscriptions.emplace_back(id);
-            }
-            */
-
-            /*
-             * TODO
-             * construct a type that can hold type information
-             * store all relevant type info in that class -> make it as a return type to this method
-             * allocate transport_endpoint with unique_ptr and store it in a container using type erasure
-             *
-             * after handleEvent is called and we call the completion callback, the client code already
-             * has the type info needed to cast the erased type in unique ptr
-             *
-             * delegate all this boilerplate to a crtp base class of the client class that handles
-             * the connector interface
-             */
-        }
-
-        template<typename ResourceHandler,
-                 typename DevicePolicies,
-                 typename TransportPolicies,
-                 typename CompletionCallback,
-                 typename DeviceAddress,
-                 std::size_t DeviceTag >
-        bool setup(const ConnectionParameters<DeviceTag, DeviceAddress> & conn_params, CompletionCallback cb)
+        template<typename TransportTraits, typename... DeviceConstructorArgs>
+        bool setup(const typename TransportTraits::device_address_t & addr,
+                             const CompletionCallback & cb, DeviceConstructorArgs&&... args)
         {
-            using types_holder = transport_traits<DeviceTag, ResourceHandler, DevicePolicies, TransportPolicies>;
-            using device_t = typename types_holder::device_t;
-            using handle_t = typename types_holder::handle_t;
-            using device_host_t = typename types_holder::device_host_t;
-            using transport_endpoint_t = typename types_holder::transport_endpoint_t;
+            using resource_handler_t = typename TransportTraits::resource_handler_t;
+            using device_policies_t = typename TransportTraits::device_policies_t;
+            using handle_t = typename TransportTraits::handle_t;
+            using device_host_t = typename TransportTraits::device_host_t;
+            using transport_endpoint_t = typename TransportTraits::transport_endpoint_t;
+            using ConcreteWrapper = DynamicTransportEndpointAdaptor<transport_endpoint_t>;
 
-            transport_endpoint_t p_endpoint = std::make_unique<transport_endpoint_t>();
-            p_endpoint->setDevice(DeviceFactory<DeviceTag>::template createDevice<ResourceHandler, DevicePolicies>());
+            auto p_endpoint = std::make_unique<transport_endpoint_t>(m_demultiplexer);
+            p_endpoint->setDevice(DeviceFactory<TransportTraits::device_tag>::template 
+                        createDevice<resource_handler_t, device_policies_t>(std::forward<DeviceConstructorArgs>(args)...));
             device_host_t & device = p_endpoint->getDevice();
             bool async_mode{true};
 
-            // for test only return before connect:
-            cb(std::move(p_endpoint));
-
-
-            if (!device.connect(conn_params.address, async_mode)){
+            if (!device.connect(addr, async_mode)){
                 return false;
             }
 
             handle_t handle = GenericDeviceAccess::getHandle(device);
             events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
+            auto p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, ITransportEndpoint>(
+                    std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
 
-            if (subscriber_id id = m_demultiplexer.subscribe(subscribed_events, handle, *this);
-                 NULL_SUBSCRIBER_ID != id){
-                m_active_subscriptions.emplace_back(id);
+            if (SubscriberID id = m_demultiplexer.subscribe(subscribed_events, handle, *this);
+                    Demultiplexer::NULL_SUBSCRIBER_ID != id){
+                m_active_subscriptions[id] = ConnectorClientSubscriber{std::move(p_endpoint_wrapper), cb};
+                return true;
             }
-            else return false;
 
-
-            return true;
+            return false;
         }
 
-        /*
-         * TODO
-         * When the connect succeeds -> call the Client completion callback with the Transport Endpoint as param
-         */
-        EHandleEventResult handleEvent(EHandleEvent event)
+        EHandleEventResult handleEvent(SubscriberID id, EHandleEvent event)
         {
-            (void) event;
-            return EHandleEventResult::E_RESULT_SUCCESS;
+            auto client_it = m_active_subscriptions.find(id); 
+            if(m_active_subscriptions.end() == client_it)
+            {
+                return EHandleEventResult::E_RESULT_INVALID_REFERENCE;
+            }
+            
+            if (EHandleEvent::E_HANDLE_EVENT_IN == event)
+            {
+                handleConnectionSuccess(client_it);
+                return EHandleEventResult::E_RESULT_SUCCESS;
+            }
+            
+            handleConnectionFailure(client_it, event);
+            return EHandleEventResult::E_RESULT_FAILURE;
+        }
+
+     protected:
+        void completeClientService(SubscriberIter client_it)
+        {
+            auto & client_sub = client_it->second;
+            client_sub.completion_callback(std::move(client_sub.p_wrapped_endpoint));
+            m_active_subscriptions.erase(client_it);
+            m_demultiplexer.unsubscribe(client_it->first);
+        }
+
+        void handleConnectionSuccess(SubscriberIter client_it)
+        {
+            events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
+            client_it->second.p_wrapped_endpoint->listenerSubscribe(events);
+            completeClientService(client_it);
+        }
+
+        void handleConnectionFailure(SubscriberIter client_it, EHandleEvent event)
+        {
+            if (enum_flag(event) & (enum_flag(EHandleEvent::E_HANDLE_EVENT_ERR) |
+                                    enum_flag(EHandleEvent::E_HANDLE_EVENT_HUP)))
+            {
+                client_it->second.p_wrapped_endpoint.reset(nullptr);
+                completeClientService(client_it);
+            }
         }
 
    private:
-        std::vector<subscriber_id> m_active_subscriptions; 
-        Demultiplexer & m_demultiplexer;
+       SubscribersMap m_active_subscriptions;
+       Demultiplexer & m_demultiplexer;
     };
 }
 #endif

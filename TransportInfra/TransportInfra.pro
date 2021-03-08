@@ -45,6 +45,7 @@ HEADERS += \
     Devices/Pipes/NamedPipeDevice.hpp \
     Devices/Pipes/NamedPipeDeviceAccess.hpp \
     Devices/Pipes/NamedPipeFactory.h \
+    Devices/Pipes/NamedPipeAddress.h \
     Devices/Sockets/HostAddress.hpp \
     Devices/Sockets/InetSocketAddress.hpp \
     Devices/Sockets/SocketDevice.hpp \

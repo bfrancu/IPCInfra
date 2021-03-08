@@ -3,6 +3,7 @@
 #include <sys/un.h>
 #include <netinet/ip.h>
 
+#include <type_traits>
 #include <utility>
 
 #include "device_traits.hpp"
@@ -30,7 +31,8 @@ DEFINE_HAS_TYPE(socket_domain);
 DEFINE_HAS_TYPE(socket_type);
 
 template <typename Device, typename = std::void_t<>>
-struct IsSocketDeviceT : std::false_type {};
+struct IsSocketDeviceT : std::false_type
+{};
 
 /*
 template <typename Device>
@@ -41,11 +43,14 @@ struct IsSocketDeviceT<Device,
 
 template <typename Device>
 struct IsSocketDeviceT<Device,
-                       std::enable_if_t<std::conjunction_v<HasTypeT_socket_domain<Device>, 
-                                                         HasTypeT_socket_type<Device>,
-                                                         HasTypeT_address_type<Device>>>> : std::true_type
+                       std::enable_if_t<std::conjunction_v<has_type_socket_domain<Device>, 
+                                                         has_type_socket_type<Device>,
+                                                         has_type_address_type<Device>>>> 
+                       : std::true_type
 {};
 
+
+/*
 template<typename Device, typename = void>
 struct IsStreamSocketDeviceT : std::false_type
 {};
@@ -56,16 +61,41 @@ struct IsStreamSocketDeviceT<Device,
                                                          std::is_same<stream_socket, typename socket_traits<Device>::socket_type>>::value>>
         : std::true_type
 {};
+*/
 
-template<typename Device, typename = void>
-struct IsDatagramSocketDeviceT : std::false_type
+template<typename Device>
+using HasStreamSocketType = std::is_same<stream_socket, typename socket_traits<Device>::socket_type>;
+
+template<typename Device>
+using HasDatagramStreamSocketType = std::is_same<datagram_socket, typename socket_traits<Device>::socket_type>;
+
+template<typename Device, 
+         typename IsSocket = traits::select_if_t<IsSocketDeviceT<Device>, 
+                                                 std::true_type,
+                                                 std::false_type>>
+struct IsStreamSocketDeviceT;
+
+template<typename Device>
+struct IsStreamSocketDeviceT<Device, std::false_type> : std::false_type
 {};
 
 template<typename Device>
-struct IsDatagramSocketDeviceT<Device,
-                       std::enable_if_t<std::conjunction<IsSocketDeviceT<Device>,
-                                                         std::is_same<datagram_socket, typename socket_traits<Device>::socket_type>>::value>>
-        : std::true_type
+struct IsStreamSocketDeviceT<Device, std::true_type> : HasStreamSocketType<Device>
+{};
+
+
+template<typename Device, 
+         typename IsSocket = traits::select_if_t<IsSocketDeviceT<Device>, 
+                                                                 std::true_type,
+                                                                 std::false_type>>
+struct IsDatagramSocketDeviceT;
+
+template<typename Device>
+struct IsDatagramSocketDeviceT<Device, std::false_type> : std::false_type
+{};
+
+template<typename Device>
+struct IsDatagramSocketDeviceT<Device, std::true_type> : HasDatagramStreamSocketType<Device>
 {};
 
 template <typename ResourceHandler,
@@ -111,10 +141,23 @@ struct CompatibleSocketDevices<SocketA,
                                                          >>> : std::true_type
 {};
 
-template <typename T>
+/*template <typename T>
 struct IsUnixSocketDeviceT : std::conjunction<HasUnixHandleTypeT<T>, IsSocketDeviceT<T>>
+{};*/
+
+template<typename Device,
+         typename IsSocket =  traits::select_if_t<IsSocketDeviceT<Device>, 
+                                                  std::true_type,
+                                                  std::false_type>>
+struct IsUnixSocketDeviceT;
+
+template<typename Device>
+struct IsUnixSocketDeviceT<Device, std::false_type> : std::false_type
 {};
 
+template<typename Device>
+struct IsUnixSocketDeviceT<Device, std::true_type> : HasUnixHandleTypeT<Device>
+{};
 
 } //infra
 /*

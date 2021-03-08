@@ -1,9 +1,15 @@
 #include <cstdint>
+#include <memory>
 #include <iostream>
 #include <type_traits>
+#include <variant>
+#include "function_traits.hpp"
+#include "pointer_traits.hpp"
 #include "template_typelist.hpp"
 #include "typelist.hpp"
 #include "runtime_dispatcher.hpp"
+#include "traits_utils.hpp"
+#include "Traits/device_constraints.hpp"
 
 #include "meta.h"
 
@@ -83,11 +89,67 @@ static_assert(std::is_same_v<filtered_tlist, floating_tlist>);
 static_assert(std::is_same_v<erase_t<extra_integers_tlist, int>, integrals_tlist_sans_int>);
 static_assert(std::is_same_v<remove_duplicates_t<extra_integers_tlist>, no_dup_int_tlist>);
 static_assert(std::is_same_v<nth_element_t<concat_tlist, 3>, long long>);
+static_assert(std::is_same_v<to_variant_t<floating_tlist>, std::variant<float, double>>);
 static_assert(size_v<concat_tlist> == 6);
+static_assert(contains_v<concat_tlist, signed char>);
+static_assert(contains_v<floating_tuple, double>);
 } //tl
+
+} //meta
+
+namespace traits
+{
+static_assert(std::is_same_v<int, select_if_t<std::true_type, int, double>>);
+static_assert(std::is_same_v<double, select_if_t<std::false_type, int, double>>);
+}
+
+namespace meta
+{
 
 namespace dispatch
 {
+
+struct ConstructableObject
+{
+    ConstructableObject(int identifier)
+    {
+        id = identifier;
+        std::cout << "ConstructableObject() id: " << id <<  "\n";
+    }
+
+    ~ConstructableObject()
+    {
+        std::cout << "~ConstructableObject() id: " << id << "\n";
+    }
+
+    ConstructableObject(const ConstructableObject & other) :
+        id(other.id)
+    {
+        std::cout << "ConstructableObject(const ConstructableObject &) id: " << id << "\n ";
+    }
+
+    ConstructableObject(ConstructableObject && other) :
+        id(other.id)
+    {
+        std::cout << "ConstructableObject(ConstructableObject &&) id: " << id << "\n ";
+    }
+
+    ConstructableObject & operator=(const ConstructableObject & other)
+    {
+        id = other.id;
+        std::cout << "operator=(const ConstructableObject &) id: " << id << "\n ";
+        return *this;
+    }
+
+    ConstructableObject & operator=(ConstructableObject && other)
+    {
+        id = other.id;
+        std::cout << "operator=(ConstructableObject &&) id: " << id << "\n ";
+        return *this;
+    }
+    
+    int id{-1};
+};
 
 struct Tester
 {
@@ -112,18 +174,24 @@ struct Tester
 struct Tester1
 {
     Tester1() {std::cout << "Tester1::Tester1()\n";}
+
     std::string test(int i){
+        value = i;
         std::cout << "std::string Tester1::test(int)\n";
-        return std::string{};
+        std::string ret{"this should go right into the variant"};
+        return ret;
     }
+    int value{0};
 };
 
 struct Tester2
 {
     long long test(double b = 1.0) {
+        value = b;
         std::cout << "long long Tester2::test(double)\n";
         return b; 
     }
+    double value{0};
 };
 
 struct Tester3
@@ -139,119 +207,190 @@ struct Tester4
     void test() && { std::cout << "void Tester4::test() && \n"; }
 };
 
+struct Tester5
+{
+    bool test(const ConstructableObject & obj)
+    {
+        std::cout << "void Tester5::test(const ConstructableObject &)\n";
+        result = obj.id;
+        return true;
+    }
+    int result{-1};
+};
+
+struct Tester6
+{
+    bool test(ConstructableObject && obj)
+    {
+        std::cout << "void Tester6::test(ConstructableObject &&)\n";
+        result = obj.id;
+        return false;
+    }
+    int result{-1};
+};
+
 enum TesterEnum : std::size_t
 {
     T_DEFAULT = 0,
     T_1,
     T_2,
     T_3,
-    T_4
+    T_4,
+    T_5,
+    T_6
 };
 
-using test_tlist = tl::typelist<Tester, Tester1, Tester2, Tester3, Tester4>;
+using test_tlist = tl::typelist<Tester, Tester1, Tester2, Tester3, Tester4, Tester5, Tester6>;
 //using test_tlist = tl::typelist<Tester>;
 static_assert(std::is_same_v<Tester, tl::nth_element_t<test_tlist, 0>>);
 
-struct select_test_overload
+DEFINE_HAS_MEMBER1(test);
+DEFINE_RETURN_TYPES_FROM_MEMBER(test);
+DEFINE_DISPATCH_TO_MEMBER(test);
+
+template<typename TList>
+using return_types_t = return_types_from_test_t<TList>;//typename return_types<TList>::type;
+
+
+template<typename TList>
+using return_variant_type = tl::to_variant_t<tl::push_front_t<tl::remove_duplicates_t<
+                                             tl::erase_t<return_types_t<tl::filter_t<HasMemberT_test, TList, true>>, void>
+                                             >, std::monostate>>;
+
+template<typename TList = test_tlist>
+class test_dispatcher1
 {
-    template<typename T, typename... Args, 
-             typename = decltype(std::declval<T>().test(std::declval<Args&&>()...)) >
-    static decltype(auto) call(T && object, Args&&... args) {
-        return std::forward<T>(object).test(std::forward<Args>(args)...);
+
+private:
+    using return_variant = tl::to_variant_t<tl::push_front_t<tl::remove_duplicates_t<
+                                                                 tl::erase_t<return_types_t<tl::filter_t<HasMemberT_test, TList, true>>, void>
+                                                                 >, std::monostate>>;
+    struct select_test_overload
+    {
+        template<typename T, typename... Args,
+                 typename = decltype(std::declval<T>().test(std::declval<Args&&>()...)) >
+        static void call(T && object, return_variant & result, Args&&... args) {
+            using return_type = std::decay_t<decltype(std::declval<T>().test(std::declval<Args&&>()...))>;
+            if constexpr (tl::contains_v<return_variant, return_type>) {
+                result = std::forward<T>(object).test(std::forward<Args>(args)...);
+            }
+            else {
+                std::forward<T>(object).test(std::forward<Args>(args)...);
+            }
+        }
+
+        template<typename T, typename... Args,
+                 typename = decltype(std::declval<T>().test(std::declval<Args&&>()...)) >
+        static decltype(auto) call(T && object, Args&&... args) {
+            return std::forward<T>(object).test(std::forward<Args>(args)...);
+        }
+        template<typename...>
+        static void call(...) {}
+    };
+
+public:
+    template<typename... Args>
+    static return_variant call(std::size_t tag, Args&&... args)
+    {
+        return_variant result;
+        auto cb = [&result, &args...](auto && tester){
+            std::cout << "inside lambda1\n";
+            select_test_overload::call(std::move(tester), result, std::forward<Args>(args)...);
+        };
+        dispatch<TList>(tag, cb);
+        return result;
     }
 
-    template<typename...>
-    static void call(...) {}
+    template<bool IsConst, typename... Args>
+    static return_variant call(std::size_t tag, object_wrapper<IsConst> wrapper, Args&&... args)
+    {
+        return_variant result;
+        auto cb = [&result, &args...](auto & tester){
+            std::cout << "inside lambda 2\n";
+            select_test_overload::call(tester, result, std::forward<Args>(args)...);
+        };
+        dispatch<TList>(tag, cb, wrapper);
+        return result;
+    }
+
 };
- 
-/*
-template<typename... Args>
-void call_test(std::size_t tag, Args&&... args)
-{
-    auto cb = [](auto tester) {
-        using tester_t = std::decay_t<decltype(tester)>;
-        delegate_call<&tester_t::test>::call(tester);
-    };
-    dispatch<test_tlist>(tag, cb);
-}
-*/
 
-template<typename... Args>
-void call_test(std::size_t tag, Args&&... args)
-{
-    auto cb = [&args...](auto && tester){
-        select_test_overload::call(std::move(tester), std::forward<Args>(args)...);
-    };
-    dispatch<test_tlist>(tag, cb);
-}
-
-template<bool IsConst, typename... Args>
-void call_test(std::size_t tag, object_wrapper<IsConst> wrapper, Args&&... args)
-{
-    auto cb = [&args...](auto & tester){
-        select_test_overload::call(tester, std::forward<Args>(args)...);
-    };
-    dispatch<test_tlist>(tag, cb, wrapper);
-}
 
 void dispatch_main()
 {
     Tester tst;
     tst.value = 199;
-    Tester *p_test = new Tester{};
-    p_test->value = 556;
-    //auto callable = [](auto && tester) { std::forward<decltype(tester)>(tester).test(); };
-    object_wrapper<true> apply_const;
-    object_wrapper<false> apply_non_const;
-    apply_const.object = reinterpret_cast<const void*>(p_test);
-    apply_non_const.object = reinterpret_cast<void*>(p_test);
-    auto & const_ref = *(reinterpret_cast<cast_object_t<Tester, object_wrapper<true>>>(apply_const.object));
-    auto & const_ref2 = extractValue<Tester>(apply_const);
-    auto & non_const_ref = extractValue<Tester>(apply_non_const);
-    //select_overload::call(non_const_ref, "gogogo");
-    const char *p_msg{"heihei"};
-    auto callable = [&p_msg](auto & tester) { tester.test(2.0); };
-    //callable(non_const_ref);
-    //callable(const_ref);
+    auto p_test = std::make_unique<Tester1>();
+    object_wrapper<true> apply_const = wrap_const(*p_test);
+    object_wrapper<false> apply_non_const = wrap(*p_test);
+    auto & const_ref = *(reinterpret_cast<cast_object_t<Tester1, object_wrapper<true>>>(apply_const.object));
+    auto & const_ref2 = extractValue<Tester1>(apply_const);
+    auto & non_const_ref = extractValue<Tester1>(apply_non_const);
 
-    //const_ref.test("hihi");
-
-    static_assert(std::is_same_v<decltype(const_ref), const Tester&>);
-    static_assert(std::is_same_v<decltype(const_ref2), const Tester&>);
-    static_assert(std::is_same_v<decltype(non_const_ref), Tester&>);
-    static_assert(std::is_same_v<std::add_const_t<Tester>*, const Tester *>);
+    static_assert(std::is_same_v<decltype(const_ref), const Tester1&>);
+    static_assert(std::is_same_v<decltype(const_ref2), const Tester1&>);
+    static_assert(std::is_same_v<decltype(non_const_ref), Tester1&>);
+    static_assert(std::is_same_v<std::add_const_t<Tester1>*, const Tester1 *>);
     static_assert(std::is_same_v<cast_object_t<Tester, object_wrapper<true>>, const Tester*>);
     static_assert(std::is_same_v<cast_object_t<Tester, object_wrapper<false>>, Tester*>);
-    //static_assert(std::is_same_v<const Tester &, >);
-    //dispatch_helper<test_tlist, 0>::dispatch(0, callable);
-    ///dispatch_helper<test_tlist, 0>::dispatch(0, callable, apply_const);
-    //dispatch_helper<test_tlist, 0>::dispatch(0, callable, apply_non_const);
-    ///dispatch<test_tlist>(TesterEnum::T_DEFAULT, callable);
-    //dispatch<test_tlist>(0, callable, apply_const);
-    //dispatch<test_tlist>(0, callable, apply_non_const);
 
-    //call_test(TesterEnum::T_DEFAULT);
-    //call_test(TesterEnum::T_DEFAULT, 3.2);
-    //call_test(TesterEnum::T_DEFAULT, apply_const);
-    //call_test(TesterEnum::T_DEFAULT, apply_const, 5.3);
-    //call_test(TesterEnum::T_DEFAULT, apply_non_const, 2.0);
-    call_test(TesterEnum::T_DEFAULT, apply_non_const, "bau");
-    call_test(TesterEnum::T_1, 2);
-    call_test(TesterEnum::T_2);
-    call_test(TesterEnum::T_1, "ccc");
-    call_test(TesterEnum::T_3);
-    call_test(TesterEnum::T_4);
-    call_test(TesterEnum::T_4, 2);
-    //delegate_call<&Tester3::test>::call(Tester3{});
-    //delegate_call<&Tester::test>::call(tst, 2.0);
-    //delegate_call2<p_test> delegator;
+    return_variant_type<test_tlist> res;
+    res = test_dispatcher1<test_tlist>::call(TesterEnum::T_1, apply_non_const, 2);
 
-    //select_overload::call(tst, 2.0);
-    //select_overload::call(tst);
-    delete p_test;
+    if (std::holds_alternative<std::string>(res))
+    {
+        std::cout << "the result: " << std::get<std::string>(res) << "\n";
+        std::cout << "tester1 value: " << p_test->value << "\n";
+    }
+
+    Tester2 t2;
+    res = test_dispatcher1<test_tlist>::call(TesterEnum::T_2, wrap(t2), 4);
+    if (std::holds_alternative<long long>(res))
+    {
+        std::cout << "the second result: " << std::get<long long>(res) << "\n";
+        std::cout << "tester2 value: " << t2.value << "\n";
+    }
+
+    //tl::to_variant_t<tl::typelist<int, double>> my_Var;
+    ConstructableObject my_obj(366);
+    Tester5 t5;
+    res = test_dispatcher1<test_tlist>::call(TesterEnum::T_5, wrap(t5), my_obj);
+    if (std::holds_alternative<bool>(res))
+    {
+        std::cout << "the third result: " << std::get<bool>(res) << "\n";
+        std::cout << "tester5 value: " << t5.result << "\n";
+    }
+    std::cout << "-----test 4 starts here----\n";
+
+    ConstructableObject your_obj(588);
+    Tester6 t6;
+    res = test_dispatcher1<test_tlist>::call(TesterEnum::T_6, wrap(t6), std::move(your_obj));
+    if (std::holds_alternative<bool>(res))
+    {
+        std::cout << "the fourth result: " << std::get<bool>(res) << "\n";
+        std::cout << "tester6 value: " << t6.result << "\n";
+    }
+
 }
 
 } //dispatch
+
+namespace traits
+{
+struct Base{};
+struct Derived : Base {};
+struct NonRelated{};
+
+static_assert(std::is_base_of_v<Base, Derived>);
+static_assert(!std::is_base_of_v<Derived, Base>);
+static_assert(!std::is_base_of_v<Base, NonRelated>);
+static_assert(are_related_v<Derived, Base>);
+static_assert(are_related_v<Base, Derived>);
+static_assert(!are_related_v<Base, NonRelated>);
+static_assert(!are_related_v<Derived, NonRelated>);
+
+
+}//traits
 
 } //meta
 } //infra

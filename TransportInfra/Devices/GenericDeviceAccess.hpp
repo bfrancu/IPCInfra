@@ -17,6 +17,9 @@ class GenericDeviceAccess
     template<typename, typename>
     friend class Connector;
 
+    template<typename Device, template<typename...> typename, typename Listener, typename>
+    friend class TransportEndpoint;
+
     template<typename Device>
     static decltype(auto) getHandle(const Device & device) { return device.getHandle(); }
 };

@@ -1,6 +1,7 @@
 #ifndef TYPE_LIST_HPP
 #define TYPE_LIST_HPP
 #include <tuple>
+#include <variant>
 
 namespace infra
 {
@@ -14,6 +15,9 @@ struct typelist
 {};
 
 struct empty_type{};
+
+template<typename Element>
+struct pack{};
 
 template<typename TList>
 struct is_empty
@@ -144,6 +148,18 @@ struct to_tuple<typelist<Ts...>>
 template<typename TList>
 using to_tuple_t = typename to_tuple<TList>::type;
 
+template<typename TList>
+struct to_variant;
+
+template<typename... Ts>
+struct to_variant<typelist<Ts...>>
+{
+   using type = std::variant<Ts...>;  
+};
+
+template<typename TList>
+using to_variant_t = typename to_variant<TList>::type;
+
 template<typename Tuple>
 struct to_tlist;
 
@@ -153,8 +169,32 @@ struct to_tlist<std::tuple<Ts...>>
     using type = typelist<Ts...>;
 };
 
+template<typename... Ts>
+struct to_tlist<std::variant<Ts...>>
+{
+    using type = typelist<Ts...>;
+};
+
 template<typename Tuple>
 using to_tlist_t = typename to_tlist<Tuple>::type;
+
+template<typename TList, typename T>
+struct contains;
+
+template<typename T, typename... Ts>
+struct contains<typelist<Ts...>, T>
+{
+    static constexpr bool value = std::disjunction_v<std::is_same<Ts, T>...>;
+};
+
+template<typename T, template <typename... > typename Container, typename... Ts>
+struct contains<Container<Ts...>, T>
+{
+    static constexpr bool value = contains<to_tlist_t<Container<Ts...>>, T>::value;
+};
+
+template<typename TList, typename T>
+constexpr bool contains_v = contains<TList, T>::value;
 
 template<typename... TLists>
 struct concat
@@ -186,10 +226,10 @@ struct zero_or_one<true>
     };
 };
 
-template<template <typename> typename Pred, typename TList, bool FilterIn = true>
+template<template <typename...> typename Pred, typename TList, bool FilterIn = true>
 struct filter;
 
-template<bool FilterIn, template <typename> typename Pred,
+template<bool FilterIn, template <typename...> typename Pred,
          typename... Ts>
 struct filter<Pred, typelist<Ts...>, FilterIn>
 {
@@ -197,7 +237,7 @@ struct filter<Pred, typelist<Ts...>, FilterIn>
                                                          : !Pred<Ts>::value)>::template helper<Ts>::type... >;
 };
 
-template<template <typename> typename Pred, typename TList, bool FilterIn>
+template<template <typename...> typename Pred, typename TList, bool FilterIn>
 using filter_t = typename filter<Pred, TList, FilterIn>::type;
 
 template<typename TList, typename Element>

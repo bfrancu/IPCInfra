@@ -11,8 +11,7 @@
 #include "sys_call_eval.h"
 #include "crtp_base.hpp"
 #include "utilities.hpp"
-#include "Traits/socket_traits.hpp"
-#include "Traits/fifo_traits.hpp"
+#include "Traits/device_constraints.hpp"
 #include "Devices/Sockets/SocketDeviceAccess.hpp"
 #include "Devices/Pipes/NamedPipeDeviceAccess.hpp"
 
@@ -24,22 +23,20 @@ template<typename Host, typename Device,
 class ConnectionPolicy{};
 
 template<typename Host, typename SocketDevice>
-class ConnectionPolicy<Host, SocketDevice, std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>
-        : public crtp_base<ConnectionPolicy<Host, SocketDevice,
-                                            std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>,
-                           Host>
+class ConnectionPolicy<Host, traits::SocketDevice<SocketDevice>>
+        : public crtp_base<ConnectionPolicy<Host, SocketDevice>, Host>
 
 {
-    using handle_type  = typename device_traits<SocketDevice>::handle_type;
-    using address_type = typename socket_traits<SocketDevice>::address_type;
+    using handle_t  = typename device_traits<SocketDevice>::handle_type;
+    using address_t = typename socket_traits<SocketDevice>::address_type;
 
 public:
-    bool connect(const address_type & sock_addr, bool non_blocking = false) {
+    bool connect(const address_t & sock_addr, bool non_blocking = false) {
         std::cout << "ConnectionPolicy::connect()\n";
         bool ret{false};
 
         if (io::ESocketState::E_STATE_DISCONNECTED == this->asDerived().getState()){
-            handle_type handle = SocketDeviceAccess::createSocketHandle<SocketDevice>();
+            handle_t handle = SocketDeviceAccess::createSocketHandle<SocketDevice>();
 
             if (handler_traits<SocketDevice>::defaultValue() == handle) return ret;
 
@@ -84,16 +81,15 @@ public:
 };
 
 template<typename Host, typename Device>
-class ConnectionPolicy<Host, Device, std::void_t<std::enable_if_t<IsNamedPipeDeviceT<Device>::value &&
-                                                                  std::negation_v<IsSocketDeviceT<Device>>>>>
+class ConnectionPolicy<Host, Device/*traits::NamedPipeDevice<Device>*/, 
+                             std::enable_if_t<IsNamedPipeDeviceT<Device>::value && std::negation_v<IsSocketDeviceT<Device>>>>
                  : public crtp_base<ConnectionPolicy<Host, Device>, Host>
 {
-    using handle_type  = typename device_traits<Device>::handle_type; 
-    using address_type = typename fifo_traits<Device>::address_type; 
-    using io_profile   = typename fifo_traits<Device>::io_profile;
+    using address_t = typename fifo_traits<Device>::address_type; 
+    using io_profile_t   = typename fifo_traits<Device>::io_profile;
 
 public:
-    bool connect(const address_type & addr, bool non_blocking = false) {
+    bool connect(const address_t & addr, bool non_blocking = false) {
         return this->asDerived().open(addr, non_blocking);
     }
 
@@ -102,7 +98,7 @@ public:
     }
 
     bool shutdown(io::EShutdownHow how) {
-       static constexpr bool read_only = std::is_same_v<io_profile, read_only_profile>;
+       static constexpr bool read_only = std::is_same_v<io_profile_t, read_only_profile>;
        if (io::EShutdownHow::E_SHUTDOWN_WRITE == how && read_only){
            return false;
        }

@@ -12,6 +12,7 @@
 #include "crtp_base.hpp"
 #include "Devices/GenericDeviceAccess.hpp"
 #include "Traits/device_traits.hpp"
+#include "Traits/device_constraints.hpp"
 #include "LinuxUtils/LinuxIOUtilities.h"
 
 namespace infra
@@ -20,23 +21,15 @@ namespace infra
 template<typename Host, typename Device, typename = std::void_t<>>
 class GenericIOPolicy{};
 
-/*
-template <typename Host, typename Device>
-using GenericIOPolicyT = GenericIOPolicy<Host, Device, std::void_t<std::enable_if_t<HasUnixHandleTypeT<Device>::value>>>;
-*/
-
-//template <typename Host, typename Device>
-//using GenericIOPolicyT = GenericIOPolicy<Host, Device, std::void_t<std::enable_if_t<std::is_same_v<int,double>>>>;
-
 template<typename Host, typename Device>
-class GenericIOPolicy<Host, Device, std::void_t<std::enable_if_t<HasUnixHandleTypeT<Device>::value>>>
+class GenericIOPolicy<Host, Device, std::void_t<traits::UnixDevice<Device>>>
         : public crtp_base<GenericIOPolicy<Host, Device>, Host>
 {
      using handle_type = typename device_traits<Device>::handle_type;
      using base = crtp_base<GenericIOPolicy<Host, Device>, Host>;
 
 public:
-    size_t read(std::string & result){ return read(GenericDeviceAccess::getHandle(this->asDerived()), result);}
+    size_t read(std::string & result){ return readImpl(GenericDeviceAccess::getHandle(this->asDerived()), result);}
 
     size_t readLine(std::string & result){ return readLine(GenericDeviceAccess::getHandle(this->asDerived()), result); }
 
@@ -45,7 +38,7 @@ public:
     ssize_t write(const std::string & data) { return write(GenericDeviceAccess::getHandle(this->asDerived()), data); }
 
 protected:
-    static size_t read(handle_type handle, std::string & result){
+    static size_t readImpl(handle_type handle, std::string & result){
         char read_buffer[READ_BUFFER_SIZE];
         size_t total_size_read{0};
         int read_count_per_call{0};

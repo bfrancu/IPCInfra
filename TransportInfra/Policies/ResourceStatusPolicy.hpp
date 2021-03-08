@@ -9,24 +9,18 @@
 #include "FilePermissions.h"
 #include "Devices/GenericDeviceAccess.hpp"
 #include "Traits/handler_traits.hpp"
+#include "Traits/device_constraints.hpp"
 
 namespace infra
 {
 
-template<typename Host, typename Device, typename = std::void_t<>>
+template<typename Host, typename Device, typename = void>
 class ResourceStatusPolicy
 {};
 
-/*
 template<typename Host, typename Device>
-using ResourceStatusPolicyT = ResourceStatusPolicy<Host, Device, std::void_t<UnixHandlerT<Device>>>;
-*/
-
-
-template<typename Host, typename Device>
-class ResourceStatusPolicy<Host, Device, std::void_t<std::enable_if_t<HasUnixHandleTypeT<Device>::value>>>
-        : public crtp_base<ResourceStatusPolicy<Host, Device, std::void_t<std::enable_if_t<HasUnixHandleTypeT<Device>::value>>>,
-                                                Host>
+class ResourceStatusPolicy<Host, Device, std::void_t<traits::UnixDevice<Device>>>
+        : public crtp_base<ResourceStatusPolicy<Host, Device>, Host>
 {
 
 public:

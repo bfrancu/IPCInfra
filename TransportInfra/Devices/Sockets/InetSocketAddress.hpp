@@ -29,6 +29,8 @@ struct NetworkAddress{
     uint16_t    port_number{0};
     HostAddress host_address;
 
+    bool empty() const { return 0 == port_number && host_address.toStringReadOnly().empty(); }
+
     bool operator==(const NetworkAddress & other) const{
         return host_address == other.host_address && port_number == other.port_number; }
 
@@ -82,6 +84,7 @@ public:
         m_p_in_addr->sin_port = other.m_p_in_addr->sin_port;
         m_p_in_addr->sin_addr.s_addr = other.m_p_in_addr->sin_addr.s_addr;
         m_p_in_addr->sin_family = PF_INET;
+        return *this;
     }
 
     InetSocketAddress(InetSocketAddress && other) = default;
@@ -122,6 +125,8 @@ public:
          p_out_in_addr->sin_port = m_p_in_addr->sin_port;
          p_out_in_addr->sin_addr.s_addr = m_p_in_addr->sin_addr.s_addr;
     }
+
+    bool empty() const { return m_address.empty(); }
 
     template<typename U>
     friend bool operator<(const InetSocketAddress<U> & left, const InetSocketAddress<U> & right);
@@ -229,6 +234,8 @@ public:
         std::copy(p_local_ip_addr, p_local_ip_addr + IPV6_ADDR_SIZE, p_remote_ip_addr);
 
     }
+
+    bool empty() const { return m_address.empty(); }
 
     template<typename U>
     friend bool operator<(const InetSocketAddress<U> & left, const InetSocketAddress<U> & right);

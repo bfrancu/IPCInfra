@@ -23,7 +23,8 @@ LIBS += -lpthread
 
 SOURCES += \
         main.cpp \
-        meta.cpp
+        meta.cpp \
+        transport.cpp
 
 HEADERS += \
     meta.h

@@ -25,11 +25,12 @@ class ReadingNamedPipeDevice : public NamedPipeDevice<ResourceHandler, Address>
 {
 public:
     using io_profile = read_only_profile;    
+    using address_type = typename NamedPipeDevice<ResourceHandler, Address>::address_type;
     using NamedPipeDevice<ResourceHandler>::NamedPipeDevice;
 
     bool open(bool non_blocking = false){
         using R = ResourceHandler;
-        return NamedPipeDevice<R>::template open<ReadingNamedPipeDevice<R>>(NamedPipeDevice<R>::m_fifo_pathname, non_blocking);
+        return NamedPipeDevice<R>::template openImpl<ReadingNamedPipeDevice<R>>(NamedPipeDevice<R>::m_fifo_pathname, non_blocking);
     }
 
     bool open(const NamedPipeAddress & addr, bool non_blocking = false){
@@ -38,7 +39,7 @@ public:
 
     bool open(const std::string & pathname, bool non_blocking = false){
         using R = ResourceHandler;
-        return NamedPipeDevice<R>::template open<ReadingNamedPipeDevice<R>>(pathname, non_blocking);
+        return NamedPipeDevice<R>::template openImpl<ReadingNamedPipeDevice<R>>(pathname, non_blocking);
     }
 };
 
@@ -47,12 +48,13 @@ class WritingNamedPipeDevice : public NamedPipeDevice<ResourceHandler, Address>
 {
 public:
     using io_profile = write_only_profile;
+    using address_type = typename NamedPipeDevice<ResourceHandler, Address>::address_type;
     using NamedPipeDevice<ResourceHandler>::NamedPipeDevice;
 
     bool open(bool non_blocking = false){
         using R = ResourceHandler;
         std::cout << "WritingNamedPipeDevice<T>::open(bool) non blocking: " << std::boolalpha << non_blocking << "\n";
-        return NamedPipeDevice<R>::template open<WritingNamedPipeDevice<R>>(NamedPipeDevice<R>::m_fifo_pathname, non_blocking);
+        return NamedPipeDevice<R>::template openImpl<WritingNamedPipeDevice<R>>(NamedPipeDevice<R>::m_fifo_pathname, non_blocking);
     }
 
     bool open(const NamedPipeAddress & addr, bool non_blocking = false){
@@ -61,7 +63,7 @@ public:
 
     bool open(const std::string & pathname, bool non_blocking = false){
         using R = ResourceHandler;
-        return NamedPipeDevice<R>::template open<WritingNamedPipeDevice<R>>(pathname, non_blocking);
+        return NamedPipeDevice<R>::template openImpl<WritingNamedPipeDevice<R>>(pathname, non_blocking);
     }
 };
 
@@ -108,13 +110,13 @@ protected:
 
 protected:
     template<typename P>
-    static bool open(...){
+    static bool openImpl(...){
         std::cout << "open ...\n";
         return false;
     }
 
     template<typename P, typename = typename P::io_profile>
-    bool open(const std::string & pathname, bool non_blocking = false){
+    bool openImpl(const std::string & pathname, bool non_blocking = false){
         auto access_mode{ std::is_same_v<
                     typename P::io_profile,
                     read_only_profile> ? io::EAccessMode::E_READ_ONLY : io::EAccessMode::E_WRITE_ONLY };

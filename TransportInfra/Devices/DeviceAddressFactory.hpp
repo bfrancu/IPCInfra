@@ -7,7 +7,7 @@
 
 namespace infra
 {
-    inline const char * const CONNECTION_SECTION{"CONNECTION_DETAILS"};
+    //inline const char * const CONNECTION_SECTION{"CONNECTION_DETAILS"};
 
     class InetSocketAddressFactoryBase
     {
@@ -20,7 +20,7 @@ namespace infra
    protected:
        template<typename NetworkAddress>
        static inet::InetSocketAddress<NetworkAddress>
-       createAddress(const config::ConfigurationBook & book, const std::string & section = CONNECTION_SECTION){
+       createAddress(const config::ConfigurationBook & book, std::string_view section){
         std::string host_str_value;
         NetworkAddress network_addr;
         inet::InetSocketAddress<NetworkAddress> ret_addr;
@@ -76,12 +76,11 @@ namespace infra
     template<std::size_t tag>
     class DeviceAddressFactory<tag, std::enable_if_t<isIPV4SocketDevice<tag>()>> : protected InetSocketAddressFactoryBase
     {
-   public:
         using Base = InetSocketAddressFactoryBase;
+   public:
         using DeviceAddressT = IPV4InetSocketAddress;
    public:
-        static DeviceAddressT createAddress(const config::ConfigurationBook & book,
-                                          const std::string & section = CONNECTION_SECTION){
+        static DeviceAddressT createAddress(const config::ConfigurationBook & book, std::string_view section){
             return Base::createAddress<IPV4NetworkAddress>(book, section);
         }
     };
@@ -89,12 +88,12 @@ namespace infra
     template<std::size_t tag>
     class DeviceAddressFactory<tag, std::enable_if_t<isIPV6SocketDevice<tag>()>> : protected InetSocketAddressFactoryBase
     {
-   public:
         using Base = InetSocketAddressFactoryBase;
+   public:
         using DeviceAddressT = IPV6InetSocketAddress;
    public:
         static DeviceAddressT createAddress(const config::ConfigurationBook & book,
-                                          const std::string & section = CONNECTION_SECTION){
+                                          std::string_view section){
             return Base::createAddress<IPV6NetworkAddress>(book, section);
         }
     };
@@ -106,8 +105,7 @@ namespace infra
    public:
        using DeviceAddressT = unx::UnixSocketAddress;
    public:
-       static DeviceAddressT createAddress(const config::ConfigurationBook & book,
-                                           const std::string & section = CONNECTION_SECTION){
+       static DeviceAddressT createAddress(const config::ConfigurationBook & book, std::string_view section){
           DeviceAddressT ret_addr;
           if(unx::UnixAddress unx_addr;
               book.valueFor(config::ConfigurationAddress{section, PATHNAME_PARAM}, unx_addr.pathname)){
@@ -124,8 +122,7 @@ namespace infra
     public:
        using DeviceAddressT = NamedPipeAddress;
     public:
-       static DeviceAddressT createAddress(const config::ConfigurationBook & book,
-                                              const std::string & section = CONNECTION_SECTION){
+       static DeviceAddressT createAddress(const config::ConfigurationBook & book, std::string_view section){
            DeviceAddressT ret_addr;
            if(std::string pathname;
                book.valueFor(config::ConfigurationAddress{section, PATHNAME_PARAM}, pathname)){

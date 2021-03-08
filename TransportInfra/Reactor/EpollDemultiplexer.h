@@ -85,7 +85,7 @@ public:
         return demux::getEventsFromMask(mask);
     }
 
-    subscriber_id getKeyfor(handle_t handle){
+    subscriber_id getKeyFor(handle_t handle){
         std::shared_lock lck{m_mutex};
         auto [sub_id, exists] = m_handle_id_map.value_for(handle);
         if (exists) return sub_id;
