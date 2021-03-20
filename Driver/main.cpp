@@ -25,6 +25,7 @@
 #include <functional>
 #include <utility>
 
+#include "transport.h"
 #include "meta.h"
 #include "enum_flag.h"
 #include "Policies/StateChangeAdvertiserPolicy.hpp"
@@ -55,6 +56,7 @@ void testConnector();
 void testPackHost();
 void testDeviceTypeErasure();
 void testEnumFlags();
+void testTransportMain();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -121,7 +123,8 @@ int main()
 {
     using namespace infra;
     //infra::meta::dispatch::dispatch_main();
-    testEnumFlags();
+    testTransportMain();
+    //testEnumFlags();
     //Connector<my_dummy> rappin_on;
     //using policies_pack = PoliciesHolder<typename Connector<my_dummy>::DeviceConnectionPolicy>;
     //using CustomPipeT = typename policies_pack::AssembledClientT<ReadingNamedPipeDevice<UnixResourceHandler>>;
@@ -154,6 +157,11 @@ int main()
 
     //testErrorChangedPolicy();
     return 0;
+}
+
+void testTransportMain()
+{
+    infra::transport::transport_main();
 }
 
 using PoliciesSet = infra::meta::ttl::template_typelist<infra::GenericIOPolicy,
@@ -259,6 +267,7 @@ void testDeviceTypeErasure()
     using packed_host_t = PackHostT<device_t, policies_t>;
     using reactor_t = Reactor<handle_t, demux::EpollDemultiplexer<handle_t>>;
     packed_host_t my_device{};
+    my_device.init();
     void *placeholder = reinterpret_cast<void*>(&my_device);
     printBytesAvailable(&my_device);
     printBytesAvailable(reinterpret_cast<packed_host_t*>(placeholder));

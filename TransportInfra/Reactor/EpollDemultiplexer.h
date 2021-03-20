@@ -149,6 +149,12 @@ public:
             }
 
             for (int i = 0; i < epoll_items_ready; ++i){
+                /* If EPOLLIN and EPOLLHUP were both set, then there might be more than MAX_BUF bytes to read. Therefore, we close
+                the file descriptor only if EPOLLIN was not set. We'll read further bytes after the next epoll_wait(). 
+                Michael Kerisk - The Linux Programming Interface, 63.4.3*/
+                if ((events_list[i].events & EPOLLHUP) && (events_list[i].events & EPOLLIN)){
+                    events_list[i].events &~ EPOLLHUP;
+                }
                 m_consumer_queue.push(EventNotification<handle_t>{events_list[i].data.fd, events_list[i].events});
             }
         }

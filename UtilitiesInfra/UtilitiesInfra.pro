@@ -45,6 +45,7 @@ HEADERS += \
     traits_utils.hpp \
     utilities.hpp \
     typelist.hpp \
+    policies_initializer.hpp \
     template_typelist.hpp
 
 # Default rules for deployment.

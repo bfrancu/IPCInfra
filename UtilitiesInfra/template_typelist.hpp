@@ -177,6 +177,7 @@ struct concat
 template<typename... TLists>
 using concat_t = typename concat<TLists...>::type;
 
+//https://quuxplusone.github.io/blog/2018/07/23/metafilter/
 template<bool>
 struct zero_or_one
 {
@@ -351,6 +352,50 @@ struct get_type_by_index : nth_element<TList, Index>
 
 template<typename TList, std::size_t N, typename... Ts>
 using get_type_by_index_tt = typename get_type_by_index<TList, N>::template type<Ts...>;
+
+/*
+template<typename TList1, typename TList2>
+struct intersect_with;
+      
+template<template <typename...> typename Head1,
+         template <typename...> typename... Tails1,
+         typename TList2>
+struct intersect_with<template_typelist<Head1, Tails1...>, TList2> : intersect_with<template_typelist<Tails1...>,
+                                                                                    TList2>
+{
+    static constexpr int value = get_index_by_type_v<Head1, TList2>;
+};
+
+template<typename TList2>
+struct intersect_with<template_typelist<>, TList2>
+{
+    using intersection_list = template_typelist<>;
+};
+*/
+
+template<typename TList1, typename TList2>
+struct intersect
+{
+    template<template<typename...> typename E>
+    struct pred
+    {
+        static constexpr int element_index = get_index_by_type_v<TList2, E>;
+        static constexpr bool value = (default_index_value != element_index);
+    };
+
+    using type = filter_t<pred, TList1>;
+};
+
+template<typename TList1, typename TList2>
+using intersect_t = typename intersect<TList1, TList2>::type;
+
+/*template<typename TList1, typename TList2>
+struct intersect
+{
+    using type = concat_t<intersect_with_t<TList1, TList2>, intersect_with_t<TList2, TList1>>;
+};*/
+
+
 /*
  * replace_elment_with
  * */

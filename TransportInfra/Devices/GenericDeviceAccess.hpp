@@ -5,6 +5,9 @@ namespace infra
 {
 class GenericDeviceAccess
 {
+    template<typename Device>
+    friend class ProxyDevice;
+
     template<typename Host, typename Device, typename>
     friend class SeekableOperations;
 
@@ -17,7 +20,11 @@ class GenericDeviceAccess
     template<typename, typename>
     friend class Connector;
 
-    template<typename Device, template<typename...> typename, typename Listener, typename>
+    template<typename Device, 
+             template<typename...> typename,
+             template<typename...> typename,
+             //typename,
+             typename Listener, typename>
     friend class TransportEndpoint;
 
     template<typename Device>

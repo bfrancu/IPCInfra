@@ -29,23 +29,26 @@ class GenericIOPolicy<Host, Device, std::void_t<traits::UnixDevice<Device>>>
      using base = crtp_base<GenericIOPolicy<Host, Device>, Host>;
 
 public:
-    size_t read(std::string & result){ return readImpl(GenericDeviceAccess::getHandle(this->asDerived()), result);}
+    ssize_t read(std::string & result){ return readImpl(GenericDeviceAccess::getHandle(this->asDerived()), result);}
 
     size_t readLine(std::string & result){ return readLine(GenericDeviceAccess::getHandle(this->asDerived()), result); }
 
-    size_t readInBuffer(size_t buffer_len, char *buffer){ return readInBuffer(GenericDeviceAccess::getHandle(this->asDerived()), buffer_len, buffer); }
+    ssize_t readInBuffer(size_t buffer_len, char *buffer){ return readInBuffer2(GenericDeviceAccess::getHandle(this->asDerived()), buffer_len, buffer); }
 
     ssize_t write(const std::string & data) { return write(GenericDeviceAccess::getHandle(this->asDerived()), data); }
 
 protected:
     static size_t readImpl(handle_type handle, std::string & result){
         char read_buffer[READ_BUFFER_SIZE];
-        size_t total_size_read{0};
+        ssize_t total_size_read{0};
         int read_count_per_call{0};
 
-        if (auto in_size = utils::unx::LinuxIOUtilities::availableSize(handle);
-            -1 != in_size){
-            result.reserve(in_size);
+        if (auto in_size = utils::unx::LinuxIOUtilities::availableSize(handle); -1 != in_size){
+            if (static_cast<int>(result.size()) < in_size){
+                result.resize(in_size);
+            }
+            total_size_read = readInBuffer2(handle, result.size() - 1, result.data());
+            return total_size_read;
         }
 
         memset(read_buffer, 0, READ_BUFFER_SIZE);
@@ -53,7 +56,10 @@ protected:
             read_count_per_call = ::read(handle, read_buffer, READ_BUFFER_SIZE);
             if (-1 == read_count_per_call){
                 if (EINTR == errno) continue;
-                else break;
+                else{
+                    total_size_read = -1;
+                    break;
+                }
             }
 
             result.append(read_buffer, read_count_per_call);
@@ -62,7 +68,31 @@ protected:
             // the buffer is not fully filled. no more data available
             if (READ_BUFFER_SIZE != read_count_per_call) break;
         }
-        return  total_size_read;
+        return total_size_read;
+    }
+
+    static ssize_t readInBuffer2(handle_type handle, std::size_t buffer_len, char *out_buffer)
+    {
+        ssize_t size_read{0};
+        ssize_t read_count_per_call{0};
+        memset(out_buffer, 0, buffer_len);
+
+        for (;;){
+            read_count_per_call = ::read(handle, out_buffer, buffer_len);
+            if (-1 == read_count_per_call){
+                if (EINTR == errno) continue;
+                else{
+                    size_read = -1;
+                    break;
+                }
+
+                size_read += read_count_per_call;
+
+                // the buffer is not fully filled. no more data available
+                if (static_cast<ssize_t>(buffer_len) != read_count_per_call) break;
+            }
+        }
+        return size_read;
     }
 
     static size_t readLine(handle_type handle, std::string & result){
@@ -100,12 +130,18 @@ protected:
 
     }
 
-    static size_t readInBuffer(handle_type handle, size_t buffer_len, char *buffer){
-        size_t size_read{0};
+    static ssize_t readInBuffer(handle_type handle, size_t buffer_len, char *buffer){
+        ssize_t size_read{0};
         for (;;)
         {
             ssize_t read_count = ::read(handle, buffer, buffer_len);
-            if (-1 == read_count && EINTR == errno) continue;
+            if (-1 == read_count){
+                if(EINTR == errno) continue;
+                else{
+                    size_read = -1;
+                    break;
+                }
+            }
 
             if (read_count > 0)
             {

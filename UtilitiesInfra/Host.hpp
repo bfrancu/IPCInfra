@@ -18,10 +18,17 @@ public:
     Host() : Client(), Plugins<Host, Client>()...
     {}
 
+    ~Host() { deinit(); }
+
     template<typename... Args>
     bool init(Args&&... args)
     {
         return initDispatch<ConcretePluginsTList>(*this, std::forward<Args>(args)...);
+    }
+
+    void deinit()
+    {
+        deinitDispatcher<ConcretePluginsTList>(*this);
     }
 };
 

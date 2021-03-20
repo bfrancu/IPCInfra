@@ -108,8 +108,9 @@ public:
     std::string getFilePath() const { return m_directory; }
     std::string getFullPath() const { return utils::unx::LinuxIOUtilities::fullPath(m_filename, m_directory); }
 
-protected:
     handle_type getHandle() const { return m_resource_handler.getHandle(); }
+
+protected:
 
     void setDirFilePaths(const std::string &pathname){
         if (pathname != getFullPath()){

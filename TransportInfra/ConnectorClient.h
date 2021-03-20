@@ -8,8 +8,12 @@
 #include "template_typelist.hpp"
 #include "Devices/DeviceDefinitions.h"
 #include "Policies/ResourceStatusPolicy.hpp"
+#include "Policies/IOPolicy.hpp"
 #include "Policies/ConnectionPolicy.hpp"
 #include "Policies/EventHandlingPolicy.hpp"
+#include "Policies/DispatcherPolicy.hpp"
+#include "Policies/StateChangeAdvertiserPolicy.hpp"
+#include "Policies/SeekableOperations.hpp"
 #include "Devices/DeviceFactory.hpp"
 #include "Devices/DefaultDeviceDefinitions.h"
 #include "Traits/device_traits.hpp"
@@ -30,6 +34,7 @@ struct platform_traits
 */
 using EpollReactor = Reactor<int, demux::EpollDemultiplexer<int>>;
 using EpollConnector = Connector<EpollReactor>;
+//DEFINE_STATE_CHANGE_ADVERTISER_POLICY(ConnectionState);
 
 class DeviceTypeReader
 {
@@ -52,15 +57,27 @@ protected:
     static SockTypeMap SocketConfigInfoToType;
 };
 
+template<template<typename...> typename EventHandlingPolicy,
+         template<typename...> typename DispatcherPolicy,
+         template<typename...> typename ConnectionStateChangeAdvertiserPolicy,
+         template<typename...> typename... Ts>
+struct generate_endpoint_typelist
+{
+    using type = meta::ttl::template_typelist<EventHandlingPolicy, DispatcherPolicy, ConnectionStateChangeAdvertiserPolicy, Ts...>;
+};
 
 struct default_client_traits
 {
-    using ResourceHandler = UnixResourceHandler;
-    using DevicePolicies = meta::ttl::template_typelist<ConnectionPolicy, ResourceStatusPolicy>;
+    // device traits
     using DeviceSet = default_device_set;
-    using TransportPolicies = meta::ttl::template_typelist<>;
+    using ResourceHandler = UnixResourceHandler;
+    using DevicePolicies = meta::ttl::template_typelist<ConnectionPolicy, ResourceStatusPolicy, GenericIOPolicy>;
+    using ExportPolicies = meta::ttl::template_typelist<ResourceStatusPolicy, SeekableOperations>;
+
+    using TransportPolicies = meta::ttl::template_typelist</*ConnectionStateChangeAdvertiserPolicy*/>;
     using Listener = Reactor<int, demux::EpollDemultiplexer<int>>;
-    using EventHandlingPolicy = meta::ttl::pack<GenericEventHandlingPolicy>;
+    using EventHandlingPolicy = meta::ttl::pack<BaseEventHandlingPolicy>;
+    using DispatcherPolicy = meta::ttl::pack<BaseDispatcherPolicy>;
 };
 
 template<typename client_traits = default_client_traits>

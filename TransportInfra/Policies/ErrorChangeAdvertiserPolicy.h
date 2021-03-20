@@ -16,7 +16,7 @@ class ErrorMemberAccess
 {
 public:
     template<typename Device>
-    static decltype(auto) getMember(Device & device) {
+    static auto getMember(Device & device) -> decltype(std::declval<Device>().getError()) {
         return device.getError();
     }
 };
@@ -58,17 +58,10 @@ public:
         m_publisher{ErrorMemberAccess::getMember(this->asDerived()), *this}
     {}
 
-
     PublisherDelegate<Publisher<Host, Device>> OnErrorChanged;
 
-
-    subscriber_id onErrorChangedSubscribe(callback cb){
-        return m_publisher.addObserver(cb);
-    }
-
-    bool onErrorChangedUnsubscribe(subscriber_id id){
-        return m_publisher.removeObserver(id);
-    }
+    inline subscriber_id onErrorChangedSubscribe(callback cb){ return m_publisher.addObserver(cb); }
+    inline bool onErrorChangedUnsubscribe(subscriber_id id){ return m_publisher.removeObserver(id); }
 
 private:
     template<typename State, typename Dispatcher>

@@ -44,6 +44,11 @@ struct IsTwoTypesHolder : std::is_same<pack<TwoTypesHolder>, pack<Holder>>
 
 using filtered_ttlist = filter_t<IsTwoTypesHolder, fifth_ttlist, false>;
 
+using intersect_ttlist1 = template_typelist<TwoTypesHolder, FourTypesHolder, ThreeTypesHolder>;
+using intersect_ttlist2 = template_typelist<FiveTypesHolder, ThreeTypesHolder, TwoTypesHolder>;
+using intersection_ttlist12 = template_typelist<TwoTypesHolder, ThreeTypesHolder>;
+
+
 static_assert(is_empty<template_typelist<>>::value);
 static_assert(std::is_same_v<front_tt<template_typelist<TwoTypesHolder>, int, double>, TwoTypesHolder<int, double>>);
 static_assert(std::is_same_v<pop_front_t<first_ttlist>, template_typelist<ThreeTypesHolder>>);
@@ -63,6 +68,7 @@ static_assert(any_of_v<fifth_ttlist, IsTwoTypesHolder> == true);
 static_assert(any_of_v<fourth_ttlist, IsTwoTypesHolder> == false);
 static_assert(get_index_by_type_v<concat_ttlist, FourTypesHolder> == 2);
 static_assert(size_v<fifth_ttlist> == 4);
+static_assert(std::is_same_v<intersect_t<intersect_ttlist1, intersect_ttlist2>, intersection_ttlist12>);
 } //ttl
 
 namespace tl

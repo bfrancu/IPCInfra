@@ -27,5 +27,6 @@ SOURCES += \
         transport.cpp
 
 HEADERS += \
-    meta.h
+    meta.h \
+    transport.h
 

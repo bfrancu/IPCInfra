@@ -49,6 +49,18 @@ template<typename Device,
                                                         IsFifoDeviceT<Device>>>>
 using FifoDevice = Device;
 
+template<typename Device, typename = void>
+struct select_traits : device_traits<Device>
+{};
+
+template<typename Device>
+struct select_traits<NamedPipeDevice<Device>> : fifo_traits<Device>
+{};
+
+template<typename Device>
+struct select_traits<Device, std::enable_if_t<IsSocketDeviceT<Device>::value>> : socket_traits<Device>
+{};
+
 }//traits
 }//infra
 

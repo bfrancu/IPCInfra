@@ -4,6 +4,8 @@
 #include "Host.hpp"
 #include "Reactor/EventTypes.h"
 #include "Devices/GenericDeviceAccess.hpp"
+#include "Policies/ConnectionStateChangeAdvertiser.hpp"
+#include "Observable.hpp"
 
 namespace infra
 {
@@ -63,68 +65,51 @@ private:
 
 template <typename AssembledDevice,
           template<typename...> typename EventHandlingPolicy,
+          template<typename...> typename DispatcherPolicy,
           typename Listener,
           typename Enable = void>
-class TransportEndpoint : public EventHandlingPolicy<Listener>
+class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, Listener>,
+                          public DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, AssembledDevice>,
+                          public ConnectionStateAdvertiser<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>>
 {
     using SubscriberID = typename Listener::SubscriberID;
+    using Device = AssembledDevice;
+    using EventHandlingBase = EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, Listener>;
+    using DispatcherBase = DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, AssembledDevice>;
  
 public:
 
     explicit TransportEndpoint(Listener & listener) :
-        EventHandlingPolicy<Listener>(listener)
+        EventHandlingBase(listener)
     {}
-    
-    /*
-    void *getDevice() override
-    {
-        return reinterpret_cast<void*>(&m_device);
-    };
-    */
 
 public:
-    /*
-    EHandleEventResult handleEvent(SubscriberID id, EHandleEvent event)
+
+    bool onInputEvent()
     {
-        (void) event;
-        if (m_listener_sub_id != id)
-        {
-            return EHandleEventResult::E_RESULT_INVALID_REFERENCE;
-        }
-        return EHandleEventResult::E_RESULT_DEFAULT;
+        return DispatcherBase::ProcessInputEvent();
     }
 
-    inline Listener & getListener() const { return m_listener; }
-    inline void setListener(Listener & listener) { m_listener = listener; }
-    inline bool subscribedToListener() const { return Listener::NULL_SUBSCRIBER_ID != m_listener_sub_id; }
-
-    bool listenerSubscribe(const events_array & events)
+    bool onDisconnection()
     {
-        if (auto id = m_listener.subscribe(events, GenericDeviceAccess::getHandle(m_device), *this);
-            Listener::NULL_SUBSCRIBER_ID != id)
-        {
-            m_listener_sub_id = id;
-            return true;
-        }
-        return false;
+        DispatcherBase::ProcessDisconnection();
+        // change state to something specific
+        return true;
     }
 
-    bool listenerUnsubscribe()
+    bool onErrorEvent()
     {
-        if (m_listener.unsubscribe(m_listener_sub_id))
-        {
-            m_listener_sub_id = Listener::NULL_SUBSCRIBER_ID;
-            return true;
-        }
-        return false;
+        // error handling policy?
+        m_device.disconnect();
+        return true;
     }
-    */
 
     template<typename U>
     void setDevice(U && device)
     {
         m_device = std::forward<U>(device);
-        EventHandlingPolicy<Listener>::setHandle(GenericDeviceAccess::getHandle(m_device));
+        //EventHandlingPolicy<Listener>::setHandle(GenericDeviceAccess::getHandle(m_device));
+        EventHandlingBase::setHandle(GenericDeviceAccess::getHandle(m_device));
     }
 
     // Policy will be a <template<typename, typename> > Policy
@@ -134,16 +119,16 @@ public:
         return static_cast<Policy&>(m_device);
     }
 
-    AssembledDevice & getDevice()
-    {
-        return m_device;
-    }
+    inline AssembledDevice & getDevice() { return m_device; }
+    //inline Listener & getListener() { return m_listener; }
+    const Observable<std::size_t> & getConnectionState() const { return m_connectionState; }
 
 private:
+    Observable<std::size_t> m_connectionState;
     bool m_initCompleted;
     AssembledDevice m_device;
+    //Listener & m_listener;
     /*
-    Listener & m_listener;
     SubscriberID m_listener_sub_id{Listener::NULL_SUBSCRIBER_ID};
     */
 };

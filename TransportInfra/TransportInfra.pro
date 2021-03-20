@@ -64,6 +64,9 @@ HEADERS += \
     Policies/SeekableOperations.hpp \
     Policies/StateChangeAdvertiserPolicy.hpp \
     Policies/StreamIOPolicy.hpp \
+    Policies/DispatcherPolicy.hpp \
+    Policies/EventHandlingPolicy.hpp \
+    Policies/ExporterPolicy.hpp \
     Policies/UnixResourceHandler.h \
     Reactor/EpollDemultiplexer.h \
     Reactor/EpollDemux.h \
