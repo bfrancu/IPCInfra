@@ -104,7 +104,7 @@ public:
     using address_type   = SocketAddress;
 
 public:
-    static handle_type createSocketHandle() { std::cout << "unix stream\n"; return ::socket(PF_UNIX, SOCK_STREAM, 0); }
+    static handle_type createSocketHandle() { std::cout << "SocketDevice::createSocketHandle() unix stream\n"; return ::socket(PF_UNIX, SOCK_STREAM, 0); }
 
 public:
     SocketDevice() { this->setHandle(createSocketHandle()); }
@@ -134,7 +134,7 @@ public:
     using address_type   = SocketAddress;
 
 public:
-    static handle_type createSocketHandle() { std::cout << "unix dgram\n"; return ::socket(PF_UNIX, SOCK_DGRAM, 0); }
+    static handle_type createSocketHandle() { std::cout << "SocketDevice::createSocketHandle() unix dgram\n"; return ::socket(PF_UNIX, SOCK_DGRAM, 0); }
 
 public:
     SocketDevice() {this->setHandle(createSocketHandle()); }
@@ -164,7 +164,7 @@ public:
     using address_type   = SocketAddress;
 
 public:
-    static handle_type createSocketHandle() { std::cout << "ipv4 udp\n"; return ::socket(PF_INET, SOCK_DGRAM, 0); }
+    static handle_type createSocketHandle() { std::cout << "SocketDevice::createSocketHandle() ipv4 udp\n"; return ::socket(PF_INET, SOCK_DGRAM, 0); }
 
 public:
     SocketDevice() { this->setHandle(createSocketHandle()); }
@@ -194,7 +194,7 @@ public:
     using address_type   = SocketAddress;
 
 public:
-    static handle_type createSocketHandle() { std::cout << "ipv4 tcp\n"; return ::socket(PF_INET, SOCK_STREAM, 0); }
+    static handle_type createSocketHandle() { std::cout << "SocketDevice::createSocketHandle() ipv4 tcp\n"; return ::socket(PF_INET, SOCK_STREAM, 0); }
 
 public:
     SocketDevice() { this->setHandle(createSocketHandle()); }
@@ -224,7 +224,7 @@ public:
     using address_type   = SocketAddress;
 
 public:
-    static handle_type createSocketHandle() { std::cout << "ipv6 udp\n"; return ::socket(PF_INET6, SOCK_DGRAM, 0); }
+    static handle_type createSocketHandle() { std::cout << "SocketDevice::createSocketHandle() ipv6 udp\n"; return ::socket(PF_INET6, SOCK_DGRAM, 0); }
 
 public:
      SocketDevice() { this->setHandle(createSocketHandle()); }
@@ -254,7 +254,7 @@ public:
     using address_type   = SocketAddress;
 
 public:
-    static handle_type createSocketHandle() { std::cout << "ipv6 tcp\n"; return ::socket(PF_INET6, SOCK_STREAM, 0); }
+    static handle_type createSocketHandle() { std::cout << "SocketDevice::createSocketHandle() ipv6 tcp\n"; return ::socket(PF_INET6, SOCK_STREAM, 0); }
 
 public:
     SocketDevice() { this->setHandle(createSocketHandle()); }

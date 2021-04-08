@@ -1,3 +1,4 @@
+#include "Devices/DefaultDeviceDefinitions.h"
 #include "fcntl.h"
 #include <sys/stat.h>
 #include "Policies/UnixResourceHandler.h"
@@ -40,6 +41,7 @@
 #include "Reactor/Reactor.hpp"
 #include "Reactor/EventTypes.h"
 #include "Reactor/EpollDemultiplexer.h"
+#include "Reactor/DeviceTestEventHandler.h"
 
 #include "template_typelist.hpp"
 
@@ -57,6 +59,7 @@ void testPackHost();
 void testDeviceTypeErasure();
 void testEnumFlags();
 void testTransportMain();
+void testReactor();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -122,8 +125,11 @@ struct my_dummy{};
 int main()
 {
     using namespace infra;
+    testReactor();
     //infra::meta::dispatch::dispatch_main();
-    testTransportMain();
+    //transport::testConnectorClient();
+    //testSocketDevices();
+    //testTransportMain();
     //testEnumFlags();
     //Connector<my_dummy> rappin_on;
     //using policies_pack = PoliciesHolder<typename Connector<my_dummy>::DeviceConnectionPolicy>;
@@ -250,6 +256,48 @@ void testConnector()
     //std::function<void(std::unique_ptr<infra::AbstractTransportEndpoint>)> cb = [](){ (void) ptr; std::cout << "yey\n"; };
 
     //connector.setup<UnixResourceHandler, DeviceConnParamsT,  ConnectionPolicy, GenericIOPolicy>(params, cb);
+}
+
+void testReactor()
+{
+    using namespace infra;
+    using namespace inet;
+
+    using HandleT = int;
+    using ReactorT= Reactor<HandleT, demux::EpollDemultiplexer<HandleT>>;
+    using DevicePoliciesT = meta::ttl::template_typelist<ConnectionPolicy>;
+    using TcpSocketDeviceT = PackHostT<defaults::IPV4TcpSocketDevice, DevicePoliciesT>;
+
+    TcpSocketDeviceT sock_dev;
+    ReactorT reactor;
+    DeviceTestEventHandler<TcpSocketDeviceT, ReactorT> ev_handler(sock_dev, reactor);
+
+    reactor.start();
+
+    uint16_t port{55123};
+    IPV4NetworkAddress network_addr{IPV4HostAddr::AddressAny(), port};
+    IPV4InetSocketAddress sock_addr{network_addr};
+    events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
+    if (ev_handler.listenerSubscribe(events))
+    {
+        std::cout << "testReactor() successfully subscribed to reactor\n";
+    }
+    else
+    {
+        std::cout << "testReactor() problem subscribing\n";
+    }
+
+    if (ev_handler.listenerUnsubscribe())
+    {
+        std::cout << "testReactor() successfully unsubscribed to reactor\n";
+    }
+    else
+    {
+        std::cout << "testReactor() problem unsubscribing\n";
+    }
+
+    reactor.stop();
+
 }
 
 template<typename Device>
@@ -484,7 +532,8 @@ void testSocketDevices()
                  IPV4InetSocketAddress,
                  ipv4_domain,
                  stream_socket>,
-            ConnectionPolicy> ipv4_client_sock{};
+            ConnectionPolicy,
+            GenericIOPolicy> ipv4_client_sock{};
 
     SocketDevice<UnixResourceHandler,
                  IPV4InetSocketAddress,
@@ -499,15 +548,20 @@ void testSocketDevices()
               << "\n";
 
 
-    NetworkAddress<IPV4HostAddr> network_addr{host_addr, 5661} ;
-    network_addr.port_number = 5661;
+    NetworkAddress<IPV4HostAddr> network_addr{host_addr, 55123} ;
+    network_addr.port_number = 55123;
     network_addr.host_address = host_addr;
 
     IPV4InetSocketAddress inet_addr;
     inet_addr.setAddress(network_addr);
 
-    ipv4_client_sock.connect(inet_addr);
+    if (ipv4_client_sock.connect(inet_addr))
+    {
+        std::cout << "connection successfull\n";
+        ipv4_client_sock.write("back again\n");
+    }
 
+    sleep(5);
     std::cout << "state before binding: " <<  ipv4_stream_sock.getState() << "\n";
     if (ipv4_stream_sock.bind(inet_addr)){
         std::cout << "state after binding: " << ipv4_stream_sock.getState() << "\n";

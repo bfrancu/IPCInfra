@@ -9,6 +9,7 @@ namespace config
     template<typename T>
         bool ConfigurationBook::valueFor(const ConfigurationAddress & addr, T & out_value) const
         {
+            std::cout << "ConfigurationBook::valueFor() section: " << addr.section << " key: " << addr.key << "\n";
             std::string_view in_value;
             if (!findValueInTable(addr, in_value)){
                 return false;

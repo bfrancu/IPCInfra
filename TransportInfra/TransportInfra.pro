@@ -68,6 +68,7 @@ HEADERS += \
     Policies/EventHandlingPolicy.hpp \
     Policies/ExporterPolicy.hpp \
     Policies/UnixResourceHandler.h \
+    Reactor/DeviceTestEventHandler.h \
     Reactor/EpollDemultiplexer.h \
     Reactor/EpollDemux.h \
     Reactor/EventHandlerSubscriber.h \
@@ -82,6 +83,7 @@ HEADERS += \
     ConnectionParameters.hpp \
     ConnectorClient.h \
     TransportEndpoint.hpp \
+    DynamicTransportEndpointAdaptor.h \
     TransportInfra_global.h
 
 # Default rules for deployment.

@@ -4,6 +4,7 @@
 #include <type_traits>
 
 #include "Devices/Sockets/UnixSocketAddress.h"
+#include "Reactor/EpollDemultiplexer.h"
 #include "Traits/device_constraints.hpp"
 #include "Traits/transport_traits.hpp"
 #include "Devices/Sockets/SocketDevice.hpp"
@@ -19,6 +20,8 @@
 #include "Policies/ConnectionPolicy.hpp"
 #include "Policies/ResourceStatusPolicy.hpp"
 #include "Policies/SeekableOperations.hpp"
+#include "Reactor/Reactor.hpp"
+#include "ConnectorClient.h"
 #include "Host.hpp"
 #include "template_typelist.hpp"
 #include "utilities.hpp"
@@ -49,6 +52,21 @@ class PolicyHierarchy<Host,
 
 //template<template <typename...> typename... Policis>
 
+void testConnectorClient()
+{
+    using namespace infra;
+    using handleT = int;
+    using ReactorT = Reactor<handleT, demux::EpollDemultiplexer<handleT>>;
+    ReactorT reactor;
+    Connector<ReactorT> connector(reactor);
+    //reactor.start();
+    //reactor.stop();
+    std::string config_file{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
+    std::string config_section{"CONNECTION_DETAILS"};
+
+    ConnectorClient<default_client_traits> client{connector, config_file};
+    client.init(config_section);
+}
 
 void transport_main()
 {

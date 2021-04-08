@@ -84,13 +84,19 @@ namespace infra
 
     template<typename ResourceHandler,
              typename DevicePolicies,
+             typename DeviceSet = default_device_set,
              typename Enable = void>
-    struct generate_device_typelist
+    struct generate_device_typelist;
+
+    template<typename ResourceHandler,
+             typename DevicePolicies>
+    struct generate_device_typelist<ResourceHandler, DevicePolicies, default_device_set>
     {
         template<typename Device>
         using add_policies = PackHostT<Device, DevicePolicies>;
 
-        using type = meta::tl::typelist<add_policies<typename Device2Type<ipv4_dgram_tag>::template device_type<ResourceHandler>>,
+        using type = meta::tl::typelist<add_policies<typename Device2Type<ipv4_strm_tag>::template device_type<ResourceHandler>>,
+                                        add_policies<typename Device2Type<ipv4_dgram_tag>::template device_type<ResourceHandler>>,
                                         add_policies<typename Device2Type<ipv6_strm_tag>::template device_type<ResourceHandler>>,
                                         add_policies<typename Device2Type<ipv6_dgram_tag>::template device_type<ResourceHandler>>,
                                         add_policies<typename Device2Type<unx_strm_tag>::template device_type<ResourceHandler>>,
@@ -99,6 +105,35 @@ namespace infra
                                         add_policies<typename Device2Type<write_fifo_tag>::template device_type<ResourceHandler>>
                                        >;
     };
+
+    template<typename ClientTraits,
+             typename DeviceSet = typename ClientTraits::DeviceSet,
+             typename Enable = void>
+    struct generate_endpoint_typelist;
+
+    template<typename ClientTraits>
+    struct generate_endpoint_typelist<ClientTraits, default_device_set>
+    {
+        using type = meta::tl::typelist<typename transport_traits<ipv4_strm_tag, ClientTraits>::transport_endpoint_t,
+                                        typename transport_traits<ipv4_dgram_tag, ClientTraits>::transport_endpoint_t,
+                                        typename transport_traits<ipv6_strm_tag, ClientTraits>::transport_endpoint_t,
+                                        typename transport_traits<ipv6_dgram_tag, ClientTraits>::transport_endpoint_t,
+                                        typename transport_traits<unx_strm_tag, ClientTraits>::transport_endpoint_t,
+                                        typename transport_traits<unx_dgram_tag, ClientTraits>::transport_endpoint_t,
+                                        typename transport_traits<read_fifo_tag, ClientTraits>::transport_endpoint_t,
+                                        typename transport_traits<write_fifo_tag, ClientTraits>::transport_endpoint_t
+                                        >;
+    };
+
+    template<typename EndpointTList>
+    struct get_devices_from_endpoint_typelist;
+
+    template<typename... Ts>
+    struct get_devices_from_endpoint_typelist<meta::tl::typelist<Ts...>>
+    {
+        using type = meta::tl::typelist<typename Ts::Device...>;
+    };
+
 } //infra
 
 #endif

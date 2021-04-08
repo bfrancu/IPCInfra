@@ -164,9 +164,10 @@ private:
 
    bool extractPrintableAddress(const void * src){
        char dest[INET_ADDRSTRLEN];
+       memset(dest, 0, INET_ADDRSTRLEN);
        m_printable_address.reserve(INET_ADDRSTRLEN);
        if (nullptr != inet_ntop(PF_INET, src, dest, INET_ADDRSTRLEN)){
-           m_printable_address.assign(dest, INET_ADDRSTRLEN);
+           m_printable_address.assign(dest, strnlen(dest, INET_ADDRSTRLEN));
            return true;
        }
        return false;
@@ -311,9 +312,10 @@ private:
 
     bool extractPrintableAddress(const void * src){
          char dest[INET6_ADDRSTRLEN];
+         memset(dest, 0, INET6_ADDRSTRLEN);
          m_printable_address.reserve(INET6_ADDRSTRLEN);
          if (nullptr != ::inet_ntop(PF_INET6, src, dest, INET6_ADDRSTRLEN)){
-             m_printable_address.assign(dest, INET6_ADDRSTRLEN);
+             m_printable_address.assign(dest, strnlen(dest, INET6_ADDRSTRLEN));
              return true;
          }
          return false;

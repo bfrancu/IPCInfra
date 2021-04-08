@@ -54,9 +54,10 @@ DeviceTypeReader::SockTypeMap DeviceTypeReader::SocketConfigInfoToType{
                              }}
 };
 
-std::size_t DeviceTypeReader::getDeviceType(const infra::config::ConfigurationBook & book,
+int DeviceTypeReader::getDeviceType(const infra::config::ConfigurationBook & book,
                                                   std::string_view section)
 {
+    std::cout << "DeviceTypeReader::getDeviceType()\n";
     using namespace infra;
     using namespace infra::config;
     EDeviceType ret_dev{EDeviceType::E_UNDEFINED_DEVICE};
@@ -76,7 +77,7 @@ std::size_t DeviceTypeReader::getDeviceType(const infra::config::ConfigurationBo
         std::cout << "dev type is fifo\n";
     }
 
-    return static_cast<std::size_t>(ret_dev);
+    return static_cast<int>(ret_dev);
 }
 
 infra::EDeviceType DeviceTypeReader::getSocketDeviceType(const infra::config::ConfigurationBook & book,

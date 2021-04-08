@@ -1,6 +1,7 @@
 #ifndef CONNECTIONPOLICY_HPP
 #define CONNECTIONPOLICY_HPP
 //#include <sys/un.h>
+#include <ios>
 #include <sys/socket.h>
 #include <fcntl.h>
 
@@ -32,7 +33,7 @@ class ConnectionPolicy<Host, traits::SocketDevice<SocketDevice>>
 
 public:
     bool connect(const address_t & sock_addr, bool non_blocking = false) {
-        std::cout << "ConnectionPolicy::connect()\n";
+        std::cout << "ConnectionPolicy::connect() addr: " << sock_addr << "; non blocking: " << std::boolalpha << non_blocking << "\n";
         bool ret{false};
 
         if (io::ESocketState::E_STATE_DISCONNECTED == this->asDerived().getState()){
@@ -46,19 +47,43 @@ public:
 
         if (io::ESocketState::E_STATE_AVAILABLE != this->asDerived().getState()) return ret;
 
-        if (non_blocking && !sys_call_noerr_eval(::fcntl,
-                                               SocketDeviceAccess::getHandle(this->asDerived()),
-                                               SOCK_NONBLOCK)) return ret; 
+        auto handle = SocketDeviceAccess::getHandle(this->asDerived());
+        if (non_blocking)
+        {
+            int flags = ::fcntl(handle, F_GETFL);
+            bool res = (-1 != ::fcntl(handle, F_SETFL, flags | O_NONBLOCK));
+            //bool res = sys_call_noerr_eval(::fcntl, SocketDeviceAccess::getHandle(this->asDerived()), SOCK_NONBLOCK);
+            if (!res)
+            {
+                std::cout << "ConnectionPolicy::connect() fcntl SOCK_NONBLOCK failure\n";
+                return ret;
+            }
+        }
+
+
+        /*
+        if (non_blocking && !sys_call_noerr_eval(::fcntl, SocketDeviceAccess::getHandle(this->asDerived()), SOCK_NONBLOCK))
+        {
+            std::cout << "ConnectionPolicy::connect() fcntl SOCK_NONBLOCK failure\n";
+            return ret; 
+        }
+        */
 
         std::unique_ptr<sockaddr> p_addr{std::make_unique<sockaddr>()};
         sock_addr.getAddress(*p_addr);
 
+        /*
         ret = sys_call_zero_eval(::connect,
                                SocketDeviceAccess::getHandle(this->asDerived()),
                                p_addr.get(),
                                static_cast<socklen_t>(sock_addr.getAddressLength())
                                );
-        std::cout << "ConnectionPolicy::connect() ret: " << ret << "\n";
+        */
+        auto res = ::connect(handle, p_addr.get(), static_cast<socklen_t>(sock_addr.getAddressLength()));
+        ret = (0 == res);
+
+        std::cout << "ConnectionPolicy::connect() res: " << res << " errno: " << errno << "\n";
+
         if (ret) SocketDeviceAccess::setState(this->asDerived(), io::ESocketState::E_STATE_CONNECTED);
 
         return ret;

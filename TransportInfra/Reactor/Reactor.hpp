@@ -34,7 +34,7 @@ public:
         m_subscribers_table{},
         m_event_queue{},
         m_demux_impl{m_event_queue},
-        m_processing_ended{false},
+        //m_processing_ended{false},
         m_reactor_running{false}
     {}
 
@@ -62,7 +62,7 @@ public:
         m_subscribers_table{},
         m_event_queue{},
         m_demux_impl{m_event_queue},
-        m_processing_ended{false},
+        //m_processing_ended{false},
         m_reactor_running{false}
     {
         std::unique_lock other_lck{other.m_mutex};
@@ -92,8 +92,15 @@ public:
 public:
     //void init();
     void start(){
+        std::cout << "Reactor::start()\n";
         std::unique_lock lck{m_mutex};
         if (m_reactor_running) return;
+
+        /*
+        if (m_processing_ended){
+            m_processing_ended = false;
+        }
+        */
 
         lck.unlock();
         if (!m_event_processing_thread.joinable()){
@@ -109,6 +116,7 @@ public:
     }
 
     void stop(){
+        std::cout << "Reactor::stop()\n";
         std::unique_lock lck{m_mutex, std::defer_lock};
         if (m_demux_impl.monitoring()){
             m_demux_impl.stopMonitoring();
@@ -117,7 +125,7 @@ public:
         lck.lock();
 
         if (!m_reactor_running) return;
-        m_processing_ended = true;
+        //m_processing_ended = true;
 
         lck.unlock();
         EventNotification<handle_t> last_event_notification{meta::traits::default_value<handle_t>::value, 0, true};
@@ -144,6 +152,7 @@ public:
 
     template<typename EventHandler>
     SubscriberID subscribe(const events_array & events, handle_t handle, EventHandler & ev_handler){
+        std::cout << "Reactor::subscribe()\n";
         ConcreteEventHandler<EventHandler> handler{&ev_handler};
         //handle_t handle{ev_handler.getHandle()};
         return subscribeImpl(events, handler, handle);
@@ -168,6 +177,7 @@ public:
 
 protected:
     SubscriberID subscribeImpl(const events_array & events, AbstractEventHandler & handler, handle_t handle){
+        std::cout << "Reactor::subscribeImpl()\n";
         uint32_t subscription_mask = m_demux_impl.getEventsMask(events);
         bool find_res{false};
         bool already_subscribed{false};
@@ -175,6 +185,8 @@ protected:
 
         do{
             sub_id = m_demux_impl.getKeyFor(handle);
+            std::cout << "Reactor::subscribeImpl() key for handle " << handle << " is: " << sub_id << "\n";
+
             auto [sub_info, res] = m_subscribers_table.value_for(sub_id);
             find_res = res;
             if (find_res && handle == sub_info.handle){
@@ -184,31 +196,46 @@ protected:
         }
         while (find_res);
 
+        std::cout << "Reactor::subscribeImpl() res found: " << sub_id << "\n";
+
         SubscriberInfoT sub_info{subscription_mask, sub_id, handler};
         if(!m_subscribers_table.add_or_update_mapping(sub_id, sub_info)){
+            std::cout << "Reactor::subscribeImpl() couldn't add mapping\n";
             return NULL_SUBSCRIBER_ID;
         }
 
         if (already_subscribed && m_demux_impl.updateListener(sub_info)){
+            std::cout << "Reactor::subscribeImpl() already subscribed\n";
             return sub_id;
         }
         else
-        {   if (m_demux_impl.registerListener(sub_info)){
+        { 
+            std::cout << "Reactor::subscribeImpl() not yet subscribed\n";
+            if (m_demux_impl.registerListener(sub_info)){
                 sub_info.registered_to_monitor = true;
                 return sub_id;
             }
             else m_subscribers_table.remove_mapping(sub_id);
         }
+        std::cout << "Reactor::subscribeImpl() returning null subscriber id\n";
         return NULL_SUBSCRIBER_ID;
     }
 
     void eventProcessingThread()
     {
+        std::cout << "Reactor::eventProcessingThread() thread started\n";
         for (;;)
         {
             EventNotification<handle_t> event_notification;
             m_event_queue.wait_and_pop(event_notification);
+
+            if(event_notification.last_event){
+                std::cout << "Reactor::eventProcessingThread() last event incoming thread stopped\n";
+                return;
+            }
+
             SubscriberID sub_id = m_demux_impl.getKeyFor(event_notification.handle);
+            std::cout << "Reactor::eventProcessingThread() new event incoming; subscriber id: " << sub_id << "\n";
             auto [sub_info, value_found] = m_subscribers_table.value_for(sub_id);
             if (value_found){
                  events_array events = m_demux_impl.getEventsFromMask(event_notification.notified_events_mask);
@@ -221,9 +248,18 @@ protected:
                      }
                  }
             }
+            else
+            {
+                std::cout << "Reactor::eventProcessingThread() subscriber not found by id\n";
+            }
 
+            /*
             std::shared_lock lck{m_mutex};
-            if (event_notification.last_event || m_processing_ended) return;
+            if (event_notification.last_event || m_processing_ended) {
+                std::cout << "Reactor::eventProcessingThread() thread stopped\n";
+                return;
+            }
+            */
         }
     }
 
@@ -235,7 +271,7 @@ private:
     DemuxTable m_subscribers_table;
     shared_queue<EventNotification<handle_t>> m_event_queue;
     DemultiplexPolicy m_demux_impl;
-    bool m_processing_ended;
+    //bool m_processing_ended;
     bool m_reactor_running;
 };
 

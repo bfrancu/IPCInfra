@@ -6,6 +6,7 @@ namespace infra
 namespace transport
 {
 
+void testConnectorClient();
 void transport_main();
 
 }//transport

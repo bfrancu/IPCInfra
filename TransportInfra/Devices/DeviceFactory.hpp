@@ -106,6 +106,7 @@ public:
     template <typename ResourceHandler,
              template<typename...> typename... Policies>
     static constexpr decltype (auto) createDevice(){
+        std::cout << "DeviceFactory::createDevice() tag: " << tag << "\n";
         return Host<device_type<ResourceHandler>, Policies...>{};
     }
 

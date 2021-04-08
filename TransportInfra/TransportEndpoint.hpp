@@ -20,13 +20,14 @@ public:
     virtual bool listenerSubscribe(const events_array & events) = 0;
     virtual bool listenerUnsubscribe() = 0;
     virtual bool subscribedToListener() const = 0;
+    virtual std::size_t getConnectionState() const = 0;
 };
 
 template<typename T>
-class DynamicTransportEndpointAdaptor : public ITransportEndpoint
+class DynamicTransportEndpointWrapper : public ITransportEndpoint
 {
 public:
-    DynamicTransportEndpointAdaptor(std::unique_ptr<T> p_endpoint) :
+    DynamicTransportEndpointWrapper(std::unique_ptr<T> p_endpoint) :
         m_pEndpoint(std::move(p_endpoint))
     {}
 
@@ -55,6 +56,10 @@ public:
         return m_pEndpoint->subscribedToListener();
     }
 
+    std::size_t getConnectionState() const override{
+        return static_cast<std::size_t>(m_pEndpoint->getConnectionState());
+    }
+
 private:
     std::unique_ptr<T> m_pEndpoint;
 };
@@ -67,24 +72,25 @@ template <typename AssembledDevice,
           template<typename...> typename EventHandlingPolicy,
           template<typename...> typename DispatcherPolicy,
           typename Listener,
+          typename StateChangeCallbackDispatcher = SerialCallbackDispatcher,
           typename Enable = void>
 class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, Listener>,
                           public DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, AssembledDevice>,
-                          public ConnectionStateAdvertiser<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>>
+                          public ConnectionStateAdvertiser<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, StateChangeCallbackDispatcher>
 {
-    using SubscriberID = typename Listener::SubscriberID;
-    using Device = AssembledDevice;
     using EventHandlingBase = EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, Listener>;
     using DispatcherBase = DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, AssembledDevice>;
- 
-public:
 
+public:
+    using Device = AssembledDevice;
+    using SubscriberID = typename Listener::SubscriberID;
+
+public:
     explicit TransportEndpoint(Listener & listener) :
         EventHandlingBase(listener)
     {}
 
 public:
-
     bool onInputEvent()
     {
         return DispatcherBase::ProcessInputEvent();

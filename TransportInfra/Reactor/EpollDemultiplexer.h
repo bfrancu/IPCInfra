@@ -1,6 +1,7 @@
 #ifndef EPOLLDEMULTIPLEXER_H
 #define EPOLLDEMULTIPLEXER_H
 
+#include <ios>
 #include <unistd.h>
 #include <shared_mutex>
 
@@ -10,9 +11,9 @@
 #include "shared_lookup_table.hpp"
 #include "sys_call_eval.h"
 
+#include <sys/epoll.h>
 namespace sys
 {
-#include <sys/epoll.h>
 //#include <unistd.h>
 }
 
@@ -42,7 +43,8 @@ public:
         m_consumer_queue{notifications_queue},
         m_handle_id_map{}
     {
-        m_epoll_fd = sys::epoll_create(EPOLL_SIZE);
+        std::cout << "EpollDemultiplexer: creating epoll fd\n";
+        m_epoll_fd = ::epoll_create(EPOLL_SIZE);
     }
 
     ~EpollDemultiplexer() { ::close(m_epoll_fd); }
@@ -88,19 +90,24 @@ public:
     subscriber_id getKeyFor(handle_t handle){
         std::shared_lock lck{m_mutex};
         auto [sub_id, exists] = m_handle_id_map.value_for(handle);
+        std::cout << "EpollDemultiplexer::getKeyFor() handle: " << handle << "; sub_id: " << sub_id 
+                  << "; exists: " << std::boolalpha << exists << "\n";
         if (exists) return sub_id;
         return getHashedKey(handle);
     }
 
     bool registerListener(const SubscriberInfo<handle_t> & sub_info){
+        std::cout << "EpollDemultiplexer::registerListener()\n";
         return registerImpl(sub_info.handle, sub_info.id, sub_info.subscribed_events_mask);
     }
 
     bool unregisterListener(const SubscriberInfo<handle_t> & sub_info){
+        std::cout << "EpollDemultiplexer::unregisterListener()\n";
         return unregisterImpl(sub_info.handle);
     }
 
     bool updateListener(const SubscriberInfo<handle_t> & sub_info){
+        std::cout << "EpollDemultiplexer::updateListener()\n";
          return updateImpl(sub_info.handle, sub_info.id, sub_info.subscribed_events_mask);
     }
 
@@ -127,17 +134,21 @@ public:
 
     void monitorWaitThread()
     {
-        using namespace sys;
+        //using namespace sys;
+        std::cout << "EpollDemultiplexer::monitorWaitThread() thread started\n";
         int epoll_items_ready{-1};
         epoll_event events_list[MAX_EPOLL_EVENTS];
         std::shared_lock lck{m_mutex, std::defer_lock};
 
         for (;;)
         {
-            epoll_items_ready = epoll_wait(m_epoll_fd, events_list, MAX_EPOLL_EVENTS, m_wait_timeout_ms);
+            epoll_items_ready = ::epoll_wait(m_epoll_fd, events_list, MAX_EPOLL_EVENTS, m_wait_timeout_ms);
             if (0 == epoll_items_ready){
                 lck.lock();
-                if (m_monitoring_ended) return;
+                if (m_monitoring_ended) {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() thread stopped\n";
+                    return;
+                }
                 else {
                     lck.unlock();
                     continue;
@@ -153,8 +164,9 @@ public:
                 the file descriptor only if EPOLLIN was not set. We'll read further bytes after the next epoll_wait(). 
                 Michael Kerisk - The Linux Programming Interface, 63.4.3*/
                 if ((events_list[i].events & EPOLLHUP) && (events_list[i].events & EPOLLIN)){
-                    events_list[i].events &~ EPOLLHUP;
+                    events_list[i].events = (events_list[i].events & ~EPOLLHUP);
                 }
+                std::cout << "EpollDemultiplexer::monitorWaitThread() new events on fd " << events_list[i].data.fd << "\n";
                 m_consumer_queue.push(EventNotification<handle_t>{events_list[i].data.fd, events_list[i].events});
             }
         }
@@ -163,28 +175,34 @@ public:
 
 protected:
     bool registerImpl(int descriptor, subscriber_id id, uint32_t events_mask){
-        using namespace sys;
+        std::cout << "EpollDemultiplexer::registerImpl()\n";
+        //using namespace sys;
         epoll_event subscription_event;
         subscription_event.events = events_mask;
         subscription_event.events |= EPOLLHUP;
         subscription_event.events |= EPOLLERR;
         subscription_event.data.fd = descriptor;
-        bool res = sys_call_noerr_eval(epoll_ctl, m_epoll_fd, EPOLL_CTL_ADD, descriptor, &subscription_event);
+        //bool res = sys_call_noerr_eval(::epoll_ctl, m_epoll_fd, EPOLL_CTL_ADD, descriptor, &subscription_event);
+        bool res = (0 != ::epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, descriptor, &subscription_event));
         if (res) (addHandleIdMapping(descriptor, id));
+        else std::cout << "EpollDemultiplexer::registerImpl() error adding to the epoll descriptor; errno " << errno << "\n";
+
         return res;
     }
 
     bool unregisterImpl(int descriptor){
+        using namespace sys;
         std::unique_lock lck{m_mutex};
         removeHandleIdMapping(descriptor);
-        return sys_call_noerr_eval(sys::epoll_ctl, m_epoll_fd, EPOLL_CTL_DEL, descriptor, nullptr);
+        return sys_call_noerr_eval(::epoll_ctl, m_epoll_fd, EPOLL_CTL_DEL, descriptor, nullptr);
     }
 
     bool updateImpl(int descriptor, subscriber_id id, uint32_t events_mask){
-        sys::epoll_event subscription_event;
+        std::cout << "EpollDemultiplexer::updateImpl()\n";
+        epoll_event subscription_event;
         subscription_event.events = events_mask;
         subscription_event.data.u64 = id;
-        return sys_call_noerr_eval(sys::epoll_ctl, m_epoll_fd, EPOLL_CTL_MOD, descriptor, &subscription_event);
+        return sys_call_noerr_eval(::epoll_ctl, m_epoll_fd, EPOLL_CTL_MOD, descriptor, &subscription_event);
     }
 
     void addHandleIdMapping(handle_t handle, subscriber_id id){

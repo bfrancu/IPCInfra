@@ -31,9 +31,14 @@ struct NamedPipeAddress
     address_type getAddress() const { return pathname; }
     bool empty() const { return pathname.empty(); }
 
+    friend inline std::ostream & operator<<(std::ostream & os, const NamedPipeAddress & addr)
+    {
+        os  << "NamedPipeAddress; pathname = " << addr.pathname << "\n";
+        return os;
+    }
+
     address_type pathname;
 };
-
 
 } // infra
 

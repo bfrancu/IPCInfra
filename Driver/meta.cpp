@@ -77,10 +77,13 @@ using extra_integers_tlist = typelist<bool, int, signed char, int, long, int, lo
 using integrals_tlist_sans_int = typelist<bool, signed char, long, long long>;
 using floating_tlist = typelist<float, double>;
 using floating_tuple = std::tuple<float, double>;
+struct test_struct { using test = int; };
 using concat_tlist = typelist<bool, signed char, long, long long, float, double>;
 
 using filtered_tlist = filter_t<std::is_floating_point, concat_tlist, true>; 
 using no_dup_int_tlist = typelist<bool, int, signed char, long, long long>;
+using custom_tlist =typelist<bool, int, char, test_struct, std::string>;
+DEFINE_GET_MEMBER_TYPE_BY_INDEX(test);
 
 static_assert(is_empty_v<typelist<>>);
 static_assert(std::is_same_v<front_t<typelist<int, double, char>>, int>);
@@ -99,6 +102,9 @@ static_assert(std::is_same_v<to_variant_t<floating_tlist>, std::variant<float, d
 static_assert(size_v<concat_tlist> == 6);
 static_assert(contains_v<concat_tlist, signed char>);
 static_assert(contains_v<floating_tuple, double>);
+static_assert(std::is_same_v<nth_element_t<custom_tlist, 3>, test_struct>);
+static_assert(std::is_same_v<typename get_test_type_by_index<custom_tlist, 3>::type, int>);
+
 } //tl
 
 } //meta
@@ -290,6 +296,7 @@ private:
         static decltype(auto) call(T && object, Args&&... args) {
             return std::forward<T>(object).test(std::forward<Args>(args)...);
         }
+
         template<typename...>
         static void call(...) {}
     };
@@ -370,7 +377,7 @@ void dispatch_main()
 
     ConstructableObject your_obj(588);
     Tester6 t6;
-    res = test_dispatcher1<test_tlist>::call(TesterEnum::T_6, wrap(t6), std::move(your_obj));
+    res = test_dispatcher<test_tlist>::call(TesterEnum::T_6, wrap(t6), std::move(your_obj));
     if (std::holds_alternative<bool>(res))
     {
         std::cout << "the fourth result: " << std::get<bool>(res) << "\n";

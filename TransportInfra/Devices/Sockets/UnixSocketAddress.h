@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 
 #include <string>
+#include <ostream>
 #include <memory>
 
 namespace infra
@@ -24,6 +25,12 @@ struct UnixAddress
     }
     friend bool operator<(const UnixAddress & first, const UnixAddress & second){
         return first.pathname < second.pathname;
+    }
+    
+    friend std::ostream & operator<<(std::ostream & os, const UnixAddress & addr)
+    {
+        os << "UnixAddress: pathame = " << addr.pathname;
+        return os;
     }
 };
 
@@ -54,6 +61,12 @@ public:
     inline static size_t getAddressLength() {
         static constexpr auto size{sizeof(sockaddr_un)};
         return size;
+    }
+
+    friend std::ostream & operator<<(std::ostream & os, const UnixSocketAddress & addr)
+    {
+        os << "UnixSocketAddress: address = " << addr.m_address;
+        return os;
     }
 
 private:

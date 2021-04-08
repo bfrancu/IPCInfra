@@ -38,6 +38,12 @@ struct NetworkAddress{
          return (host_address < other.host_address) ?
                      true : (host_address == other.host_address) ?
                          (port_number < other.port_number) : false; }
+
+    friend inline std::ostream & operator<<(std::ostream & os, const NetworkAddress & addr)
+    {
+        os << "port: " << addr.port_number << " addr: " << addr.host_address.toStringReadOnly() << "\n";
+        return os;
+    }
 };
 
 template<typename NetworkAddress, typename = void>
@@ -130,6 +136,12 @@ public:
 
     template<typename U>
     friend bool operator<(const InetSocketAddress<U> & left, const InetSocketAddress<U> & right);
+
+    friend std::ostream & operator<<(std::ostream & os, const InetSocketAddress & addr)
+    {
+        os << "IPV4 InetSocketAddress: address = " << addr.m_address;
+        return os;
+    }
 
 public:
     inline static size_t getAddressLength(){
@@ -239,6 +251,12 @@ public:
 
     template<typename U>
     friend bool operator<(const InetSocketAddress<U> & left, const InetSocketAddress<U> & right);
+
+    friend std::ostream & operator<<(std::ostream & os, const InetSocketAddress & addr)
+    {
+        os << "IPV6 InetSocketAddress: address = " << addr.m_address;
+        return os;
+    }
 
 public:
     inline static size_t getAddressLength(){

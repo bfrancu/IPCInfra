@@ -30,12 +30,16 @@ object_wrapper<false> wrap(T & value) {
     return res;
 }
 
+
 template<typename T>
 object_wrapper<true> wrap_const(const T & value) {
     object_wrapper<true> res;
     res.object = reinterpret_cast<const void*>(&value);
     return res;
 }
+
+object_wrapper<false> wrap(void *value);
+object_wrapper<true> wrap_const(const void *value);
 
 template<typename T, typename ObjectWrapper>
 struct cast_object;

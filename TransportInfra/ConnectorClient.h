@@ -21,6 +21,7 @@
 #include "DeviceTypeSelector.hpp"
 #include "Reactor/Reactor.hpp"
 #include "Connector.hpp"
+#include "DynamicTransportEndpointAdaptor.h"
 #include "ConfigurationBook.h"
 
 namespace infra
@@ -42,7 +43,7 @@ public:
     virtual ~DeviceTypeReader() = default;
 
 public:
-    virtual std::size_t getDeviceType(const infra::config::ConfigurationBook & book,
+    virtual int getDeviceType(const infra::config::ConfigurationBook & book,
                                      std::string_view section);
 protected:
     infra::EDeviceType getSocketDeviceType(const infra::config::ConfigurationBook & book,
@@ -57,6 +58,7 @@ protected:
     static SockTypeMap SocketConfigInfoToType;
 };
 
+/*
 template<template<typename...> typename EventHandlingPolicy,
          template<typename...> typename DispatcherPolicy,
          template<typename...> typename ConnectionStateChangeAdvertiserPolicy,
@@ -64,7 +66,7 @@ template<template<typename...> typename EventHandlingPolicy,
 struct generate_endpoint_typelist
 {
     using type = meta::ttl::template_typelist<EventHandlingPolicy, DispatcherPolicy, ConnectionStateChangeAdvertiserPolicy, Ts...>;
-};
+};*/
 
 struct default_client_traits
 {
@@ -88,6 +90,7 @@ class ConnectorClient
     using DevicePolicies = typename client_traits::DevicePolicies;
     using Listener = typename client_traits::Listener;
     using ConcreteDeviceTypes = typename generate_device_typelist<ResourceHandler, DevicePolicies>::type;
+    using EndpointTypes = typename generate_endpoint_typelist<client_traits>::type;
     using StaticTransportEndpoint = typename transport_traits<unx_strm_tag, client_traits>::transport_endpoint_t;
 
 public:
@@ -101,16 +104,23 @@ public:
         infra::config::ConfigurationBook book{config_file};
         if (!book.init()) return;
         m_device_type = static_cast<int>(DeviceTypeReader{}.getDeviceType(book, section));
-        auto dynamic_completion_cb = [](auto endpoint) { (void) endpoint; std::cout << "here\n"; };
-        auto static_completion_cb = [] (std::unique_ptr<ITransportEndpoint>&&) { std::cout <<"here 2\n"; };
+        if (static_cast<int>(EDeviceType::E_UNDEFINED_DEVICE) == m_device_type)
+        {
+            std::cerr << "Invalid device type\n";
+            return;
+        }
+        else
+        {
+            std::cout << "Static device type is: " << read_fifo_tag << "; dynamic device type is: " << m_device_type << "\n";
+        }
 
+        auto dynamic_completion_cb = [](auto endpoint) { (void) endpoint; std::cout << "dynamic endpoint cb\n"; };
+        auto static_completion_cb = [] (std::unique_ptr<ITransportEndpoint>&&) { std::cout <<"static endpoint cb\n"; };
+
+        std::cout << "\nConnecting dynamic device\n";
         ConnectorAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);
-                                                 //[](std::unique_ptr<ITransportEndpoint> p) {});
-        ConnectorAdapter::connect<client_traits, unx_strm_tag>(book, section, m_connector, static_completion_cb);
-        /*
-        DeviceTypeSelector<>::connect<ResourceHandler, DevicePolicies, TransportPolicies>
-                                     (m_device_type, book, section, m_connector, callable);
-        */
+        std::cout << "\nConnecting static device\n";
+        ConnectorAdapter::connect<client_traits, read_fifo_tag>(book, section, m_connector, static_completion_cb);
     }
 
     inline int getDeviceType() const { return m_device_type; }
@@ -121,6 +131,7 @@ private:
 
     Connector<Listener> & m_connector;
     std::unique_ptr<StaticTransportEndpoint> m_p_static_transport_endpoint;
+    std::unique_ptr<DynamicTransportEndpointAdapter<EndpointTypes>> m_p_dynamic_transport_endpoint;
 };
 
 void toLower(std::string & value);

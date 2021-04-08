@@ -57,32 +57,51 @@ namespace infra
         bool setup(const typename TransportTraits::device_address_t & addr,
                              const CompletionCallback & cb, DeviceConstructorArgs&&... args)
         {
+            std::cout << "Connector::setup() connecting device; address: " << addr << "\n";
             using resource_handler_t = typename TransportTraits::resource_handler_t;
             using device_policies_t = typename TransportTraits::device_policies_t;
             using handle_t = typename TransportTraits::handle_t;
             using device_host_t = typename TransportTraits::device_host_t;
             using transport_endpoint_t = typename TransportTraits::transport_endpoint_t;
-            using ConcreteWrapper = DynamicTransportEndpointAdaptor<transport_endpoint_t>;
+            using ConcreteWrapper = DynamicTransportEndpointWrapper<transport_endpoint_t>;
+
+            std::cout <<"Connector::setup() creating new endpoint\n";
 
             auto p_endpoint = std::make_unique<transport_endpoint_t>(m_demultiplexer);
+
+            std::cout <<"Connector::setup() setting new device in the endpoint\n";
+
             p_endpoint->setDevice(DeviceFactory<TransportTraits::device_tag>::template 
                         createDevice<resource_handler_t, device_policies_t>(std::forward<DeviceConstructorArgs>(args)...));
-            device_host_t & device = p_endpoint->getDevice();
-            bool async_mode{true};
 
-            if (!device.connect(addr, async_mode)){
-                return false;
-            }
+            std::cout << "Connector::setup() Device was set\n";
+            device_host_t & device = p_endpoint->getDevice();
+            bool async_mode{false};
 
             handle_t handle = GenericDeviceAccess::getHandle(device);
             events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
-            auto p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, ITransportEndpoint>(
-                    std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
 
             if (SubscriberID id = m_demultiplexer.subscribe(subscribed_events, handle, *this);
                     Demultiplexer::NULL_SUBSCRIBER_ID != id){
-                m_active_subscriptions[id] = ConnectorClientSubscriber{std::move(p_endpoint_wrapper), cb};
-                return true;
+
+                std::cout << "Connector::setup() subscribed to demultiplexer.\n";
+                if (device.connect(addr, async_mode)){
+                    auto p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, ITransportEndpoint>(
+                                              std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
+
+                    m_active_subscriptions[id] = ConnectorClientSubscriber{std::move(p_endpoint_wrapper), cb};
+                    return true;
+                    std::cout << "Connector::setup() device connection done with success\n";
+                }
+                else
+                {
+                    // should unsubscribe from demultiplexer in case of connection failure
+                }
+                std::cout << "Connector::setup() device connection done with failure\n";
+            }
+            else
+            {
+                std::cout << "Connector::setup() failure subscribing to demultiplexer.\n";
             }
 
             return false;
@@ -107,14 +126,6 @@ namespace infra
         }
 
      protected:
-        void completeClientService(SubscriberIter client_it)
-        {
-            auto & client_sub = client_it->second;
-            client_sub.completion_callback(std::move(client_sub.p_wrapped_endpoint));
-            m_active_subscriptions.erase(client_it);
-            m_demultiplexer.unsubscribe(client_it->first);
-        }
-
         void handleConnectionSuccess(SubscriberIter client_it)
         {
             events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
@@ -130,6 +141,15 @@ namespace infra
                 client_it->second.p_wrapped_endpoint.reset(nullptr);
                 completeClientService(client_it);
             }
+        }
+
+     private:
+        void completeClientService(SubscriberIter client_it)
+        {
+            auto & client_sub = client_it->second;
+            client_sub.completion_callback(std::move(client_sub.p_wrapped_endpoint));
+            m_active_subscriptions.erase(client_it);
+            m_demultiplexer.unsubscribe(client_it->first);
         }
 
    private:

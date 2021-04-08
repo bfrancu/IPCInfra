@@ -81,11 +81,6 @@ struct RuntimeTransportTraitsResolution<default_device_set, void>
     template<typename ClientTraits, typename Callable, typename... Args>
     static decltype(auto) forward(std::size_t device_tag, Callable && callable, Args&&... args)
     {
-        //using resource_handler_t = typename ClientTraits::ResourceHandler;
-        //using devices_policies_t = typename ClientTraits::DevicePolicies;
-        //using transport_policies_t = typename ClientTraits::TransportPolicies;
-        //using listener_t = typename ClientTraits::Listener;
-        //using default_transport_traits_t = transport_traits<ipv4_strm_tag, resource_handler_t, devices_policies_t, transport_policies_t, listener_t>;
         using default_transport_traits_t = transport_traits<ipv4_strm_tag, ClientTraits>;
         using return_t = decltype(std::declval<Callable>()(std::declval<meta::tl::pack<default_transport_traits_t>>(), std::declval<Args&&>()...));
 
@@ -98,43 +93,36 @@ struct RuntimeTransportTraitsResolution<default_device_set, void>
             }
             case ipv4_dgram_tag:
             {
-                //using transport_traits = transport_traits<ipv4_dgram_tag, resource_handler_t, devices_policies_t, transport_policies_t, listener_t>;
                 using transport_traits = transport_traits<ipv4_dgram_tag, ClientTraits>;
                 return callable(meta::tl::pack<transport_traits>{}, std::forward<Args>(args)...);
             }
             case ipv6_strm_tag:
             {
-                //using transport_traits = transport_traits<ipv6_strm_tag, resource_handler_t, devices_policies_t, transport_policies_t, listener_t>;
                 using transport_traits = transport_traits<ipv6_strm_tag, ClientTraits>;
                 return callable(meta::tl::pack<transport_traits>{}, std::forward<Args>(args)...);
             }
             case ipv6_dgram_tag:
             {
-                //using transport_traits = transport_traits<ipv6_dgram_tag, resource_handler_t, devices_policies_t, transport_policies_t, listener_t>;
                 using transport_traits = transport_traits<ipv6_dgram_tag, ClientTraits>;
                 return callable(meta::tl::pack<transport_traits>{}, std::forward<Args>(args)...);
             }
             case unx_strm_tag:
             {
-                //using transport_traits = transport_traits<unx_strm_tag, resource_handler_t, devices_policies_t, transport_policies_t, listener_t>;
                 using transport_traits = transport_traits<unx_strm_tag, ClientTraits>;
                 return callable(meta::tl::pack<transport_traits>{}, std::forward<Args>(args)...);
             }
             case unx_dgram_tag:
             {
-                //using transport_traits = transport_traits<unx_dgram_tag, resource_handler_t, devices_policies_t, transport_policies_t, listener_t>;
                 using transport_traits = transport_traits<unx_dgram_tag, ClientTraits>;
                 return callable(meta::tl::pack<transport_traits>{}, std::forward<Args>(args)...);
             }
             case read_fifo_tag:
             {
-                //using transport_traits = transport_traits<read_fifo_tag, resource_handler_t, devices_policies_t, transport_policies_t, listener_t>;
                 using transport_traits = transport_traits<read_fifo_tag, ClientTraits>;
                 return callable(meta::tl::pack<transport_traits>{}, std::forward<Args>(args)...);
             }
             case write_fifo_tag:
             {
-                //using transport_traits = transport_traits<write_fifo_tag, resource_handler_t, devices_policies_t, transport_policies_t, listener_t>;
                 using transport_traits = transport_traits<write_fifo_tag, ClientTraits>;
                 return callable(meta::tl::pack<transport_traits>{}, std::forward<Args>(args)...);
             }
@@ -150,6 +138,7 @@ public:
     static constexpr bool connect(const infra::config::ConfigurationBook & book, std::string_view section,
                                   Connector & connector, Args&&... args)
     {
+        std::cout << "ConnectorAdapter::connect<DeviceTag>()\n";
         using transport_traits = transport_traits<DeviceTag, ClientTraits>;
         return forwardConnect<transport_traits>(book, section, connector, std::forward<Args>(args)...);
     }
@@ -158,6 +147,7 @@ public:
     static bool connect(std::size_t device_tag, const infra::config::ConfigurationBook & book,
                         std::string_view section, Connector & connector, Args&&... args)
     {
+        std::cout << "ConnectorAdapter::connect(DeviceTag)\n";
         using device_set_t = typename ClientTraits::DeviceSet;
         auto callable = [] (auto traits_pack, auto&&... fwargs) {
             return forwardConnect(traits_pack, std::forward<decltype(fwargs)>(fwargs)...);
@@ -172,6 +162,7 @@ private:
                                         Connector & connector, Args&&... args)
    {
        typename TransportTraits::device_address_t dev_addr = DeviceAddressFactory<TransportTraits::device_tag>::createAddress(book, section);
+       std::cout << "ConnectorAdapter::forwardConnect<TransportTraits>() device address: " << dev_addr << "\n";
        if(dev_addr.empty()) return false;
 
        return connector.template setup<TransportTraits>(dev_addr, std::forward<Args>(args)...);
@@ -183,7 +174,6 @@ private:
    {
        return forwardConnect<TransportTraits>(book, section, connector, std::forward<Args>(args)...);
    }
-
 };
 
 }//infra

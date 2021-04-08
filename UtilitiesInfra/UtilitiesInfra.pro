@@ -23,7 +23,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     InetUtils/InetUtilities.cpp \
-    LinuxUtils/LinuxIOUtilities.cpp
+    LinuxUtils/LinuxIOUtilities.cpp \
+    runtime_dispatcher.cpp
 
 HEADERS += \
     Host.hpp \

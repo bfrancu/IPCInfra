@@ -28,8 +28,14 @@ public:
     using DisconnectedCB = std::function<void()>;
 
 public:
-    inline void registerInputCallback(InputAvailableCB cb) { m_inputAvailableCB = std::move(cb); }
-    inline void registerDisconnectionCallback(DisconnectedCB cb) { m_disconnectionCB = std::move(cb); }
+    inline bool registerInputCallback(InputAvailableCB cb) {
+        m_inputAvailableCB = std::move(cb);
+        return true;
+    }
+    inline bool registerDisconnectionCallback(DisconnectedCB cb) {
+        m_disconnectionCB = std::move(cb);
+        return false;
+    }
 
 protected: 
     bool ProcessInputEvent()

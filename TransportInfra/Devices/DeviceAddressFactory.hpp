@@ -39,25 +39,25 @@ namespace infra
        }
     };
 
-    template<std::size_t tag>
+    template<std::size_t tag, typename Enable = void>
     constexpr bool isIPV4SocketDevice() {
         return tag == static_cast<std::size_t>(EDeviceType::E_IPV4_TCP_SOCKET_DEVICE) ||
                tag == static_cast<std::size_t>(EDeviceType::E_IPV4_UDP_SOCKET_DEVICE);
     }
 
-    template<std::size_t tag>
+    template<std::size_t tag, typename Enable = void>
     constexpr bool isIPV6SocketDevice() {
         return tag == static_cast<std::size_t>(EDeviceType::E_IPV6_TCP_SOCKET_DEVICE) ||
                tag == static_cast<std::size_t>(EDeviceType::E_IPV6_UDP_SOCKET_DEVICE);
     }
 
-    template<std::size_t tag>
+    template<std::size_t tag, typename Enable = void>
     constexpr bool isUnixSocketDevice(){
         return tag == static_cast<std::size_t>(EDeviceType::E_UNIX_STREAM_SOCKET_DEVICE) ||
                tag == static_cast<std::size_t>(EDeviceType::E_UNIX_DGRAM_SOCKET_DEVICE);
     }
 
-    template<std::size_t tag>
+    template<std::size_t tag, typename Enable = void>
     constexpr bool isNamedPipeDevice(){
         return tag == static_cast<std::size_t>(EDeviceType::E_READING_FIFO_DEVICE) ||
                tag == static_cast<std::size_t>(EDeviceType::E_WRITING_FIFO_DEVICE);
@@ -108,7 +108,7 @@ namespace infra
        static DeviceAddressT createAddress(const config::ConfigurationBook & book, std::string_view section){
           DeviceAddressT ret_addr;
           if(unx::UnixAddress unx_addr;
-              book.valueFor(config::ConfigurationAddress{section, PATHNAME_PARAM}, unx_addr.pathname)){
+             book.valueFor(config::ConfigurationAddress{section, PATHNAME_PARAM}, unx_addr.pathname)){
                 ret_addr.setAddress(unx_addr);
             } 
             return ret_addr;

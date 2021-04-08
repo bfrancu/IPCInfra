@@ -184,7 +184,7 @@ public:
             it != internal_container.end()){
             return std::make_pair(it->second, true);
         }
-        return std::make_pair(mapped_type(), true);
+        return std::make_pair(mapped_type(), false);
     }
 
     void remove_mapping(const key_type & key){

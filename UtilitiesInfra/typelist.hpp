@@ -276,6 +276,16 @@ struct remove_duplicates<typelist<>>
 template<typename TList>
 using remove_duplicates_t = typename remove_duplicates<TList>::type;
 
+#define DEFINE_GET_MEMBER_TYPE_BY_INDEX(Member)                                \
+template<typename TList, std::size_t N>                                        \
+struct get_##Member##_type_by_index                                            \
+{                                                                              \
+    using nth_element = nth_element_t<TList, N>;                               \
+    using type = std::conditional_t<std::is_same_v<nth_element, empty_type>,   \
+                                    empty_type,                                \
+                                    typename nth_element::Member>;             \
+} //; intentionally skipped
+
 } //tl
 } //meta
 } //infra
