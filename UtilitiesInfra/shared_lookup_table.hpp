@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <set>
+#include <iostream>
 #include <shared_mutex>
 #include <iterator>
 #include <algorithm>
@@ -207,7 +208,7 @@ public:
         return getKeysFromContainer<key_type, container>(internal_container);
     }
 
-    lookup_table getSubsectionForKeys(const std::vector<key_type> & keys) const{
+    lookup_table get_subsection_for(const std::vector<key_type> & keys) const{
         shared_lock lck{sh_mutex};
         lookup_table subsection;
         for (const auto & key : keys){
@@ -326,13 +327,12 @@ public:
         if (iterator it = get_value_position_for(key);
             it != internal_container.end()){
             it->second = std::forward<M>(mapped_value);
-            return true;
         }
         else{
             internal_container.emplace_back(std::make_pair(key, std::forward<M>(mapped_value)));
             internal_sort();
         }
-        return false;
+        return true;
     }
 
     std::pair<mapped_type, bool> value_for(const key_type & key) const{
@@ -346,6 +346,7 @@ public:
 
     void remove_mapping(const key_type & key){
         unique_lock lck{sh_mutex};
+        if (internal_container.empty()) return;
         internal_container.erase(std::remove_if(internal_container.begin(), internal_container.end(),
                                                 [&key](const auto & pair){return key == pair.first;}));
     }
@@ -365,7 +366,7 @@ public:
         return getKeysFromContainer<key_type, container>(internal_container);
     }
 
-    lookup_table getSubsectionForKeys(const std::vector<key_type> & keys) const{
+    lookup_table get_subsection_for(const std::vector<key_type> & keys) const{
         lookup_table subsection;
         subsection.internal_container.reserve(keys.size());
         shared_lock lck{sh_mutex};

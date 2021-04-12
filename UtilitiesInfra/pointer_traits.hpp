@@ -45,6 +45,48 @@ std::unique_ptr<To, Deleter<To>> dynamic_cast_unique_ptr(std::unique_ptr<From, D
 
 }//traits
 }//meta
+
+/*
+namespace utils
+{
+
+template<typename T>
+struct deferred_copy_shared_ptr
+{
+    deferred_copy_shared_ptr(const std::shared_ptr<T> & shared_ptr, bool deferred_copy = true) :
+        shared_ref{std::ref(shared_ptr)}
+    {
+        if (!deferred_copy){
+            aquire_copy();
+        }
+    }
+
+    deferred_copy_shared_ptr(const deferred_copy_shared_ptr & other)
+    {
+    }
+
+    deferred_copy_shared_ptr(deferred_copy_shared_ptr && other)
+    {}
+
+    inline void aquire_copy() { p_shared = shared_ref.get(); }
+
+    inline T & operator*() {
+        if (p_shared) return *p_shared;
+        return *(shared_ref.get());
+    }
+
+    inline T * operator->(){
+        if (p_shared) return p_shared.get();
+        return (shared_ref.get()).get();
+    }
+
+    std::reference_wrapper<std::shared_ptr<T>> shared_ref;
+    std::shared_ptr<T> p_shared{nullptr};
+};
+*/
+
+}//utils
+
 }//infra
 
 #endif

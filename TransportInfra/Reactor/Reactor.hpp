@@ -1,6 +1,8 @@
 #ifndef REACTOR_HPP
 #define REACTOR_HPP
 
+#include <signal.h>
+
 #include <thread>
 #include <mutex>
 #include <algorithm>
@@ -11,6 +13,28 @@
 #include "shared_lookup_table.hpp"
 #include "shared_queue.hpp"
 
+static void sigHandler(int signal)
+{
+    if (SIGINT == signal)
+    {
+        std::cout << "caught SIGINT\n";
+    }
+    else if (SIGQUIT == signal)
+    {
+        std::cout << "caught SIGQUIT\n";
+    }
+    else if (SIGKILL == signal)
+    {
+        std::cout << "caught SIGKILL\n";
+    }
+    else if (SIGSEGV == signal)
+    {
+        std::cout << "\n\n\nSegmentation fault ocurred thread " << std::this_thread::get_id() << "\n\n";
+        exit(-1);
+    }
+
+}
+
 namespace infra
 {
 
@@ -19,10 +43,12 @@ class Reactor
 {
 
 public:
-    using SubscriberInfoT = SubscriberInfo<handle_t>;
-    using SubscriberID    = subscriber_id;
-    using DemuxTable      = shared_lookup_table<SubscriberID, SubscriberInfoT, std::unordered_map>;
-    using Handle          = handle_t;
+    using SubscriberContextT = SubscriberContext<handle_t>;
+    using SubscriberID       = subscriber_id;
+    using DemuxTable         = shared_lookup_table<SubscriberID, SubscriberContextT, std::unordered_map>;
+    using HandlersTable      = std::unordered_map<SubscriberID, EventHandlerWrapper>;
+    using HandlersTableIter  = typename HandlersTable::iterator;
+    using Handle             = handle_t;
 
     static constexpr SubscriberID NULL_SUBSCRIBER_ID{0};
 
@@ -32,6 +58,7 @@ public:
         m_event_processing_thread{},
         m_mutex{},
         m_subscribers_table{},
+        m_handlers_table{},
         m_event_queue{},
         m_demux_impl{m_event_queue},
         //m_processing_ended{false},
@@ -60,6 +87,7 @@ public:
         m_event_processing_thread{},
         m_mutex{},
         m_subscribers_table{},
+        m_handlers_table{},
         m_event_queue{},
         m_demux_impl{m_event_queue},
         //m_processing_ended{false},
@@ -69,6 +97,7 @@ public:
         m_demux_wait_thread = std::move(other.m_demux_wait_thread);
         m_event_processing_thread = std::move(other.m_event_processing_thread);
         m_subscribers_table = std::move(other.m_subscribers_table);
+        m_handlers_table = std::move(other.m_handlers_table);
         m_event_queue = std::move(other.m_event_queue);
         m_demux_impl = std::move(other.m_demux_impl);
     }
@@ -81,6 +110,7 @@ public:
         m_demux_wait_thread = std::move(other.m_demux_wait_thread);
         m_event_processing_thread = std::move(other.m_event_processing_thread);
         m_subscribers_table = std::move(other.m_subscribers_table);
+        m_handlers_table = std::move(other.m_handlers_table);
         m_event_queue = std::move(other.m_event_queue);
         m_demux_impl = std::move(other.m_demux_impl);
         return *this;
@@ -153,30 +183,78 @@ public:
     template<typename EventHandler>
     SubscriberID subscribe(const events_array & events, handle_t handle, EventHandler & ev_handler){
         std::cout << "Reactor::subscribe()\n";
-        ConcreteEventHandler<EventHandler> handler{&ev_handler};
-        //handle_t handle{ev_handler.getHandle()};
-        return subscribeImpl(events, handler, handle);
+        SubscriberID ret_sub_id = subscribeImpl(events, handle);
+        if (NULL_SUBSCRIBER_ID != ret_sub_id)
+        {
+            addHandlerInTable(ret_sub_id, ev_handler);
+        }
+        return ret_sub_id;
     }
 
     bool unsubscribe(SubscriberID id){
+        std::cout << "Reactor::unsubscribe() id: " << id << "\n";
+
         m_subscribers_table.remove_if([](const auto & pair){
             return pair.second.expired || !pair.second.registered_to_monitor;});
 
-        if (auto [sub_info, res_found] = m_subscribers_table.value_for(id);
-            res_found){
+        if (auto [sub_info, res_found] = m_subscribers_table.value_for(id); res_found){
+            /*
+            std::cout << "Reactor::unsubscribe() id: " << id << " expired: " << sub_info.expired
+                      << " registered: " << sub_info.registered_to_monitor << "\n";
+            */
             if (sub_info.registered_to_monitor){
                 m_demux_impl.unregisterListener(sub_info);
             }
 
             m_subscribers_table.remove_mapping(id);
+            removeHandler(id);
             return true;
+        }
+        else
+        {
+            std::cout << "Reactor::unsubscribe() subscribe not found by id: " << id << "\n";
         }
 
         return false;
     }
 
+    void testHandlers()
+    {
+        std::cout << "Reactor::testHandlers() thread " << std::this_thread::get_id() << "\n";
+        m_subscribers_table.for_each([] (auto & pair) {
+            pair.second.event_handler.handleEvent(pair.first, EHandleEvent::E_HANDLE_EVENT_IN); }
+                                     );
+    }
+
+    template<typename EventHandler>
+    void addHandlerInTable(SubscriberID id, EventHandler & ev_handler)
+    {
+        std::lock_guard lck{m_mutex};
+        m_handlers_table[id] = EventHandlerWrapper(&ev_handler);
+    }
+
+    void removeHandler(SubscriberID id)
+    {
+        std::lock_guard lck{m_mutex};
+        if (auto it = m_handlers_table.find(id); std::end(m_handlers_table) != it)
+        {
+            m_handlers_table.erase(it);
+        }
+    }
+
+    bool setHandlerInProgress(SubscriberID id, bool inProgress)
+    {
+        std::lock_guard lck{m_mutex};
+        if (auto it = m_handlers_table.find(id); std::end(m_handlers_table) != it)
+        {
+            it->second.in_progress.store(inProgress);
+            return true;
+        }
+        return false;
+    }
+
 protected:
-    SubscriberID subscribeImpl(const events_array & events, AbstractEventHandler & handler, handle_t handle){
+    SubscriberID subscribeImpl(const events_array & events, handle_t handle){
         std::cout << "Reactor::subscribeImpl()\n";
         uint32_t subscription_mask = m_demux_impl.getEventsMask(events);
         bool find_res{false};
@@ -190,33 +268,43 @@ protected:
             auto [sub_info, res] = m_subscribers_table.value_for(sub_id);
             find_res = res;
             if (find_res && handle == sub_info.handle){
+                //std::cout << "Reactor::subscribeImpl() already subscribed with sub id " << sub_id << "\n";
                 already_subscribed = true;
                 break;
             }
         }
         while (find_res);
 
-        std::cout << "Reactor::subscribeImpl() res found: " << sub_id << "\n";
+        //std::cout << "Reactor::subscribeImpl() res found: " << sub_id << "\n";
 
-        SubscriberInfoT sub_info{subscription_mask, sub_id, handler};
+        //std::cout << "Reactor::subscribeImpl() mapping added for sub id: " << sub_id << "\n";
+
+        if (already_subscribed) {
+            std::lock_guard lck{m_mutex};
+            if(auto it = m_handlers_table.find(sub_id); std::end(m_handlers_table) != it) {
+                if (it->second.in_progress) return NULL_SUBSCRIBER_ID;
+            }
+        }
+
+        SubscriberContextT sub_info(subscription_mask, sub_id, handle);
         if(!m_subscribers_table.add_or_update_mapping(sub_id, sub_info)){
             std::cout << "Reactor::subscribeImpl() couldn't add mapping\n";
             return NULL_SUBSCRIBER_ID;
         }
+        
+        if (already_subscribed) {
+            return m_demux_impl.updateListener(sub_info) ? sub_id : NULL_SUBSCRIBER_ID;
+        }
 
-        if (already_subscribed && m_demux_impl.updateListener(sub_info)){
-            std::cout << "Reactor::subscribeImpl() already subscribed\n";
+        if (m_demux_impl.registerListener(sub_info)){
+            std::cout << "Reactor::subscribeImpl() demultiplexer registered listener\n";
+            sub_info.registered_to_monitor = true;
+            m_subscribers_table.add_or_update_mapping(sub_id, sub_info);
             return sub_id;
         }
-        else
-        { 
-            std::cout << "Reactor::subscribeImpl() not yet subscribed\n";
-            if (m_demux_impl.registerListener(sub_info)){
-                sub_info.registered_to_monitor = true;
-                return sub_id;
-            }
-            else m_subscribers_table.remove_mapping(sub_id);
-        }
+
+        m_subscribers_table.remove_mapping(sub_id);
+
         std::cout << "Reactor::subscribeImpl() returning null subscriber id\n";
         return NULL_SUBSCRIBER_ID;
     }
@@ -224,6 +312,11 @@ protected:
     void eventProcessingThread()
     {
         std::cout << "Reactor::eventProcessingThread() thread started\n";
+        signal(SIGQUIT, sigHandler);
+        signal(SIGINT, sigHandler);
+        signal(SIGKILL, sigHandler);
+        signal(SIGSEGV, sigHandler);
+
         for (;;)
         {
             EventNotification<handle_t> event_notification;
@@ -235,18 +328,34 @@ protected:
             }
 
             SubscriberID sub_id = m_demux_impl.getKeyFor(event_notification.handle);
-            std::cout << "Reactor::eventProcessingThread() new event incoming; subscriber id: " << sub_id << "\n";
+            std::cout << "Reactor::eventProcessingThread() new event incoming; subscriber id: " << sub_id << " thread " << std::this_thread::get_id() << "\n";
             auto [sub_info, value_found] = m_subscribers_table.value_for(sub_id);
-            if (value_found){
-                 events_array events = m_demux_impl.getEventsFromMask(event_notification.notified_events_mask);
+            if (value_found && !sub_info.expired){
+                if (!setHandlerInProgress(true)){
+                    sub_info.expired = true;
+                    m_subscribers_table.add_or_update_mapping(sub_id, sub_info);
+                    continue;
+                }
+                 //sub_info.event_handler.handleEvent(sub_id, EHandleEvent::E_HANDLE_EVENT_IN);
+                 //std::cout << "Reactor::eventProcessingThread() subscriber id found\n";
+                events_array events = m_demux_impl.getEventsFromMask(event_notification.notified_events_mask);
 
-                 for (auto event : events){
-                     EHandleEventResult res = sub_info.event_handler.handleEvent(sub_id, event);
+                for (auto event : events){
+                     if (EHandleEvent::E_HANDLE_EVENT_NULL == event) continue;
+
+                     std::cout << "Reactor::eventProcessingThread() handling event: " << static_cast<int>(event) << "\n";
+                     EHandleEventResult res = m_handlers_table[sub_id].handleEvent(sub_id, event);
+                     //EHandleEventResult res = EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
+                     std::cout << "Reactor::eventProcessingThread() event handled\n";
+
                      if (EHandleEventResult::E_RESULT_INVALID_REFERENCE == res){
+                         std::cout << "Reactor::eventProcessingThread() sub id " << sub_id << "expired\n";
                          sub_info.expired = true;
+                         m_subscribers_table.add_or_update_mapping(sub_id, sub_info);
                          break;
                      }
                  }
+                m_handlers_table[sub_id].in_progress.store(false);
             }
             else
             {
@@ -269,6 +378,7 @@ private:
 
     mutable std::shared_mutex m_mutex;
     DemuxTable m_subscribers_table;
+    HandlersTable m_handlers_table;
     shared_queue<EventNotification<handle_t>> m_event_queue;
     DemultiplexPolicy m_demux_impl;
     //bool m_processing_ended;
@@ -278,5 +388,3 @@ private:
 } //infra
 
 #endif // REACTOR_HPP
-
-

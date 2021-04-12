@@ -5,6 +5,8 @@
 #include "EventHandlerSubscriber.h"
 #include "Policies/EventHandlingPolicy.hpp"
 
+namespace infra
+{
 template<typename Device, typename Listener>
 class DeviceTestEventHandler : public infra::BaseEventHandlingPolicy<DeviceTestEventHandler<Device, Listener>, Listener>
 {
@@ -14,6 +16,11 @@ public:
         Base(listener),
         m_device(device)
     {}
+
+    void init()
+    {
+        Base::setHandle(infra::GenericDeviceAccess::getHandle(m_device));
+    }
 
     bool onInputEvent()
     {
@@ -30,11 +37,10 @@ public:
         std::cout << "DeviceTestEventHandler::onErrorEvent()\n";
     }
 
-
-
 private:
     Device & m_device;
 };
 
+}//infra
 
 #endif // DEVICETESTEVENTHANDLER_H

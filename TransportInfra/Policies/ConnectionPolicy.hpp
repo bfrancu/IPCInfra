@@ -83,6 +83,11 @@ public:
         ret = (0 == res);
 
         std::cout << "ConnectionPolicy::connect() res: " << res << " errno: " << errno << "\n";
+        if (EINPROGRESS == errno)
+        {
+            std::cout << "ConnectionPolicy::connect() operation in progress\n";
+        }
+
 
         if (ret) SocketDeviceAccess::setState(this->asDerived(), io::ESocketState::E_STATE_CONNECTED);
 

@@ -60,6 +60,7 @@ void testDeviceTypeErasure();
 void testEnumFlags();
 void testTransportMain();
 void testReactor();
+void testSharedLookupTable();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -125,6 +126,7 @@ struct my_dummy{};
 int main()
 {
     using namespace infra;
+    //testSharedLookupTable();
     testReactor();
     //infra::meta::dispatch::dispatch_main();
     //transport::testConnectorClient();
@@ -258,6 +260,80 @@ void testConnector()
     //connector.setup<UnixResourceHandler, DeviceConnParamsT,  ConnectionPolicy, GenericIOPolicy>(params, cb);
 }
 
+void testSharedLookupTable()
+{
+    infra::shared_lookup_table<int, std::string, std::unordered_map> table_map;
+    infra::shared_lookup_table<int, std::string, std::vector> table_vector;
+    int one_key{1};
+    std::string one_value{"one"};
+    if (table_map.add_or_update_mapping(one_key, one_value))
+    {
+       std::cout << "successfully added one to map\n";
+    }
+
+    if (table_vector.add_or_update_mapping(one_key, one_value))
+    {
+       std::cout << "successfully added one to vector\n";
+    }
+
+    auto [vector_val, vector_found] = table_vector.value_for(one_key);
+    auto [map_val, map_found] = table_map.value_for(one_key);
+
+    if (map_found)
+    {
+        std::cout << "value found in map " << map_val << "\n";
+    }
+
+    if (vector_found)
+    {
+        std::cout << "value found in vector " << vector_val << "\n";
+    }
+
+    table_vector.remove_mapping(one_key);
+    table_map.remove_mapping(one_key);
+
+    std::tie(vector_val, vector_found) = table_vector.value_for(one_key);
+    std::tie(map_val, map_found) = table_map.value_for(one_key);
+
+    if (!map_found)
+    {
+        std::cout << "value is not found anymore in map after key removal\n";
+    }
+    else
+    {
+        std::cout << "value still present in map table\n";
+    }
+
+    if (!vector_found)
+    {
+        std::cout << "value is not found anymore in map after key removal\n";
+    }
+    else
+    {
+        std::cout << "value still present in vector table\n";
+    }
+
+    table_vector.add_or_update_mapping(2, "two");
+    table_vector.add_or_update_mapping(3, "three");
+    table_vector.add_or_update_mapping(4, "four");
+    table_vector.add_or_update_mapping(5, "five");
+    table_vector.add_or_update_mapping(6, "six");
+
+    table_map.add_or_update_mapping(2, "two");
+    table_map.add_or_update_mapping(3, "three");
+    table_map.add_or_update_mapping(4, "four");
+    table_map.add_or_update_mapping(5, "five");
+    table_map.add_or_update_mapping(6, "six");
+
+    auto table_vector_keys_snapshot = table_vector.get_keys_snapshot();
+    auto table_map_keys_snapshot = table_map.get_keys_snapshot();
+
+    auto printer = [] (auto key){ std::cout << "key: " << key << "\n"; };
+    std::for_each(std::begin(table_vector_keys_snapshot), std::end(table_vector_keys_snapshot), printer);
+    std::cout << "printing map table keys snapshot\n";
+    std::for_each(std::begin(table_map_keys_snapshot), std::end(table_map_keys_snapshot), printer);
+}
+
 void testReactor()
 {
     using namespace infra;
@@ -265,28 +341,47 @@ void testReactor()
 
     using HandleT = int;
     using ReactorT= Reactor<HandleT, demux::EpollDemultiplexer<HandleT>>;
-    using DevicePoliciesT = meta::ttl::template_typelist<ConnectionPolicy>;
+    using DevicePoliciesT = meta::ttl::template_typelist<ConnectionPolicy, GenericIOPolicy>;
     using TcpSocketDeviceT = PackHostT<defaults::IPV4TcpSocketDevice, DevicePoliciesT>;
 
+    TcpSocketDeviceT sock_dev_;
     TcpSocketDeviceT sock_dev;
     ReactorT reactor;
     DeviceTestEventHandler<TcpSocketDeviceT, ReactorT> ev_handler(sock_dev, reactor);
-
+    ev_handler.init();
     reactor.start();
 
     uint16_t port{55123};
+    bool non_blocking{false};
     IPV4NetworkAddress network_addr{IPV4HostAddr::AddressAny(), port};
     IPV4InetSocketAddress sock_addr{network_addr};
     events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
     if (ev_handler.listenerSubscribe(events))
     {
-        std::cout << "testReactor() successfully subscribed to reactor\n";
+        std::cout << "testReactor() successfully subscribed to reactor thread " << std::this_thread::get_id() << "\n";
     }
     else
     {
         std::cout << "testReactor() problem subscribing\n";
     }
 
+    reactor.testHandlers();
+    return;
+
+    if(!sock_dev.connect(sock_addr, non_blocking))
+    {
+        std::cout << "testReactor() socket device connection failed\n";
+    }
+    else
+    {
+        std::cout << "testReactor() socket device connected\n";
+        sock_dev.write("hello bye\n");
+    }
+
+    for (;;) {}
+
+
+    /*
     if (ev_handler.listenerUnsubscribe())
     {
         std::cout << "testReactor() successfully unsubscribed to reactor\n";
@@ -297,7 +392,7 @@ void testReactor()
     }
 
     reactor.stop();
-
+    */
 }
 
 template<typename Device>
@@ -314,6 +409,7 @@ void testDeviceTypeErasure()
     using policies_t = meta::ttl::template_typelist<ResourceStatusPolicy>;
     using packed_host_t = PackHostT<device_t, policies_t>;
     using reactor_t = Reactor<handle_t, demux::EpollDemultiplexer<handle_t>>;
+
     packed_host_t my_device{};
     my_device.init();
     void *placeholder = reinterpret_cast<void*>(&my_device);

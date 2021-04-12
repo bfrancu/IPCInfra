@@ -41,6 +41,7 @@ HEADERS += \
     shared_lookup_table.hpp \
     runtime_dispatcher.hpp \
     function_traits.hpp \
+    pointer_traits.hpp \
     shared_queue.hpp \
     sys_call_eval.h \
     traits_utils.hpp \

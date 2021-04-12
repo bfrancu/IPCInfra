@@ -2,6 +2,7 @@
 #define EVENT_HANDLING_POLICY_H
 #include <functional>
 #include <optional>
+#include <iostream>
 
 #include "crtp_base.hpp"
 #include "Reactor/EventTypes.h"
@@ -23,11 +24,25 @@ public:
 
     EHandleEventResult handleEvent(SubscriberID id, EHandleEvent event)
     {
+        std::cout << "BaseEventHandlingPolicy::handleEvent() id: " << id << " event1 " << static_cast<int>(event) << "\n";
+       return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
         std::optional<bool> optional_process_res;
+        //auto r = (m_listener_sub_id != id);
+        std::cout << "BaseEventHandlingPolicy::handleEvent() id: " << id << " event2 " << static_cast<int>(event) << "\n";
+
+       return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
+
         if (m_listener_sub_id != id)
         {
-            return EHandleEventResult::E_RESULT_INVALID_REFERENCE;
+            std::cout << "BaseEventHandlingPolicy::handleEvent() returning invalid reference\n";
+            //return EHandleEventResult::E_RESULT_INVALID_REFERENCE;
+            //return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
         }
+
+        std::cout << "BaseEventHandlingPolicy::handleEvent() returning method not implemented\n";
+
+        return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
+
         switch(event)
         {
             case EHandleEvent::E_HANDLE_EVENT_ERR      :
@@ -42,6 +57,7 @@ public:
                                                 : EHandleEventResult::E_RESULT_FAILURE;
         }
 
+        std::cout << "BaseEventHandlingPolicy::handleEvent() return\n";
         return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
     }
 
@@ -51,6 +67,7 @@ public:
     {
         if (!m_optional_handle_ref.has_value())
         {
+            std::cout << "BaseEventHandlingPolicy::listenerSubscribe() Device handle reference not set\n";
             return false;
         }
 
@@ -60,6 +77,8 @@ public:
             m_listener_sub_id = id;
             return true;
         }
+        std::cout << "BaseEventHandlingPolicy::listenerSubscribe() returning false \n";
+
         return false;
     }
 
@@ -74,7 +93,12 @@ public:
     }
 
 protected:
-    ~BaseEventHandlingPolicy() = default;
+    ~BaseEventHandlingPolicy()
+    {
+        if (subscribedToListener()) {
+            listenerUnsubscribe();
+        }
+    }
 
     void setHandle(Handle handle)
     {

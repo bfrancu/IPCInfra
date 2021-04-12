@@ -96,17 +96,17 @@ public:
         return getHashedKey(handle);
     }
 
-    bool registerListener(const SubscriberInfo<handle_t> & sub_info){
+    bool registerListener(const SubscriberContext<handle_t> & sub_info){
         std::cout << "EpollDemultiplexer::registerListener()\n";
         return registerImpl(sub_info.handle, sub_info.id, sub_info.subscribed_events_mask);
     }
 
-    bool unregisterListener(const SubscriberInfo<handle_t> & sub_info){
+    bool unregisterListener(const SubscriberContext<handle_t> & sub_info){
         std::cout << "EpollDemultiplexer::unregisterListener()\n";
         return unregisterImpl(sub_info.handle);
     }
 
-    bool updateListener(const SubscriberInfo<handle_t> & sub_info){
+    bool updateListener(const SubscriberContext<handle_t> & sub_info){
         std::cout << "EpollDemultiplexer::updateListener()\n";
          return updateImpl(sub_info.handle, sub_info.id, sub_info.subscribed_events_mask);
     }
@@ -175,15 +175,15 @@ public:
 
 protected:
     bool registerImpl(int descriptor, subscriber_id id, uint32_t events_mask){
-        std::cout << "EpollDemultiplexer::registerImpl()\n";
+        std::cout << "EpollDemultiplexer::registerImpl() handle: " << descriptor << "\n";
         //using namespace sys;
         epoll_event subscription_event;
         subscription_event.events = events_mask;
-        subscription_event.events |= EPOLLHUP;
-        subscription_event.events |= EPOLLERR;
+        subscription_event.events |= (EPOLLHUP | EPOLLERR);
+        subscription_event.events |= EPOLLET;
         subscription_event.data.fd = descriptor;
         //bool res = sys_call_noerr_eval(::epoll_ctl, m_epoll_fd, EPOLL_CTL_ADD, descriptor, &subscription_event);
-        bool res = (0 != ::epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, descriptor, &subscription_event));
+        bool res = (-1 != ::epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, descriptor, &subscription_event));
         if (res) (addHandleIdMapping(descriptor, id));
         else std::cout << "EpollDemultiplexer::registerImpl() error adding to the epoll descriptor; errno " << errno << "\n";
 
@@ -191,10 +191,14 @@ protected:
     }
 
     bool unregisterImpl(int descriptor){
+        std::cout << "EpollDemultiplexer::unregisterImpl() descriptor: " << descriptor << "\n";
         using namespace sys;
         std::unique_lock lck{m_mutex};
         removeHandleIdMapping(descriptor);
-        return sys_call_noerr_eval(::epoll_ctl, m_epoll_fd, EPOLL_CTL_DEL, descriptor, nullptr);
+        bool res = (-1 != ::epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, descriptor, nullptr));
+        if (!res) std::cout << "EpollDemultiplexer::unregisterImpl() error removing from the epoll descriptor; errno " << errno << "\n";
+        return res;
+        //return sys_call_noerr_eval(::epoll_ctl, m_epoll_fd, EPOLL_CTL_DEL, descriptor, nullptr);
     }
 
     bool updateImpl(int descriptor, subscriber_id id, uint32_t events_mask){
@@ -230,7 +234,6 @@ private:
     mutable std::shared_mutex m_mutex;
     shared_queue<EventNotification<handle_t>> & m_consumer_queue;
     shared_lookup_table<handle_t, subscriber_id, std::vector> m_handle_id_map;
-
 };
 
 } //demux
