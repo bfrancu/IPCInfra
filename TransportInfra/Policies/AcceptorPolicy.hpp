@@ -99,6 +99,9 @@ public:
     }
 
 protected:
+    ~AcceptorPolicy() = default;
+
+protected:
     SocketDevice acceptImpl(bool non_blocking) {
         SocketDevice peer_sock;
         if (io::ESocketState::E_STATE_LISTENING != this->asDerived().getState()) return peer_sock;
@@ -138,6 +141,9 @@ public:
     bool bind(const address_type & addr) { return this->asDerived().setAddress(addr); }
     bool listen(int) { return true; }
     bool accept(bool non_blocking = false) { return this->asDerived().open(non_blocking); }
+
+protected:
+    ~AcceptorPolicy() = default;
 };
 
 } //infra

@@ -6,6 +6,7 @@
 #include <thread>
 #include <mutex>
 #include <algorithm>
+#include <chrono>
 //#include <unordered_map>
 
 #include "default_traits.hpp"
@@ -41,7 +42,6 @@ namespace infra
 template<typename handle_t, typename DemultiplexPolicy>
 class Reactor
 {
-
 public:
     using SubscriberContextT = SubscriberContext<handle_t>;
     using SubscriberID       = subscriber_id;
@@ -132,6 +132,7 @@ public:
         }
         */
 
+        m_cleanup_ts = std::chrono::system_clock::now();
         lck.unlock();
         if (!m_event_processing_thread.joinable()){
             m_event_processing_thread = std::thread(&Reactor<handle_t, DemultiplexPolicy>::eventProcessingThread, this);
@@ -194,8 +195,7 @@ public:
     bool unsubscribe(SubscriberID id){
         std::cout << "Reactor::unsubscribe() id: " << id << "\n";
 
-        m_subscribers_table.remove_if([](const auto & pair){
-            return pair.second.expired || !pair.second.registered_to_monitor;});
+        cleanupExpired();
 
         if (auto [sub_info, res_found] = m_subscribers_table.value_for(id); res_found){
             /*
@@ -218,6 +218,8 @@ public:
         return false;
     }
 
+
+    /*
     void testHandlers()
     {
         std::cout << "Reactor::testHandlers() thread " << std::this_thread::get_id() << "\n";
@@ -225,33 +227,7 @@ public:
             pair.second.event_handler.handleEvent(pair.first, EHandleEvent::E_HANDLE_EVENT_IN); }
                                      );
     }
-
-    template<typename EventHandler>
-    void addHandlerInTable(SubscriberID id, EventHandler & ev_handler)
-    {
-        std::lock_guard lck{m_mutex};
-        m_handlers_table[id] = EventHandlerWrapper(&ev_handler);
-    }
-
-    void removeHandler(SubscriberID id)
-    {
-        std::lock_guard lck{m_mutex};
-        if (auto it = m_handlers_table.find(id); std::end(m_handlers_table) != it)
-        {
-            m_handlers_table.erase(it);
-        }
-    }
-
-    bool setHandlerInProgress(SubscriberID id, bool inProgress)
-    {
-        std::lock_guard lck{m_mutex};
-        if (auto it = m_handlers_table.find(id); std::end(m_handlers_table) != it)
-        {
-            it->second.in_progress.store(inProgress);
-            return true;
-        }
-        return false;
-    }
+    */
 
 protected:
     SubscriberID subscribeImpl(const events_array & events, handle_t handle){
@@ -260,6 +236,8 @@ protected:
         bool find_res{false};
         bool already_subscribed{false};
         SubscriberID sub_id{NULL_SUBSCRIBER_ID};
+
+        cleanupExpired();
 
         do{
             sub_id = m_demux_impl.getKeyFor(handle);
@@ -276,7 +254,6 @@ protected:
         while (find_res);
 
         //std::cout << "Reactor::subscribeImpl() res found: " << sub_id << "\n";
-
         //std::cout << "Reactor::subscribeImpl() mapping added for sub id: " << sub_id << "\n";
 
         if (already_subscribed) {
@@ -309,6 +286,50 @@ protected:
         return NULL_SUBSCRIBER_ID;
     }
 
+    template<typename EventHandler>
+    void addHandlerInTable(SubscriberID id, EventHandler & ev_handler)
+    {
+        std::lock_guard lck{m_mutex};
+        m_handlers_table[id] = EventHandlerWrapper(&ev_handler);
+    }
+
+    bool removeHandler(SubscriberID id)
+    {
+        std::lock_guard lck{m_mutex};
+        if (auto it = m_handlers_table.find(id); std::end(m_handlers_table) != it)
+        {
+            if (!it->second.in_progress)
+            {
+                m_handlers_table.erase(it);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool setHandlerInProgress(SubscriberID id, bool inProgress)
+    {
+        std::lock_guard lck{m_mutex};
+        if (auto it = m_handlers_table.find(id); std::end(m_handlers_table) != it)
+        {
+            it->second.in_progress.store(inProgress);
+            return true;
+        }
+        return false;
+    }
+
+    void cleanupExpired()
+    {
+        std::cout << "Reactor::cleanupExpired() cleaning up exired subscribers\n";
+        m_subscribers_table.remove_if([this](const auto & pair){
+            if (pair.second.expired || !pair.second.registered_to_monitor){
+                return removeHandler(pair.first);
+            }
+            return false;
+        });
+        m_cleanup_ts = std::chrono::system_clock::now();
+    }
+
     void eventProcessingThread()
     {
         std::cout << "Reactor::eventProcessingThread() thread started\n";
@@ -331,13 +352,12 @@ protected:
             std::cout << "Reactor::eventProcessingThread() new event incoming; subscriber id: " << sub_id << " thread " << std::this_thread::get_id() << "\n";
             auto [sub_info, value_found] = m_subscribers_table.value_for(sub_id);
             if (value_found && !sub_info.expired){
-                if (!setHandlerInProgress(true)){
+                if (!setHandlerInProgress(sub_id, true)){
                     sub_info.expired = true;
                     m_subscribers_table.add_or_update_mapping(sub_id, sub_info);
                     continue;
                 }
-                 //sub_info.event_handler.handleEvent(sub_id, EHandleEvent::E_HANDLE_EVENT_IN);
-                 //std::cout << "Reactor::eventProcessingThread() subscriber id found\n";
+                std::cout << "Reactor::eventProcessingThread() subscriber id found\n";
                 events_array events = m_demux_impl.getEventsFromMask(event_notification.notified_events_mask);
 
                 for (auto event : events){
@@ -355,6 +375,7 @@ protected:
                          break;
                      }
                  }
+
                 m_handlers_table[sub_id].in_progress.store(false);
             }
             else
@@ -362,15 +383,19 @@ protected:
                 std::cout << "Reactor::eventProcessingThread() subscriber not found by id\n";
             }
 
-            /*
-            std::shared_lock lck{m_mutex};
-            if (event_notification.last_event || m_processing_ended) {
-                std::cout << "Reactor::eventProcessingThread() thread stopped\n";
-                return;
+            if (CLEANUP_INTERVAL_S <= elapsedFrom(m_cleanup_ts)){
+                cleanupExpired();
             }
-            */
         }
     }
+
+    std::size_t elapsedFrom(const std::chrono::time_point<std::chrono::system_clock> & ts)
+    {
+        return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - ts).count();
+    }
+    
+private:
+    static constexpr std::size_t CLEANUP_INTERVAL_S{300};
 
 private:
     std::thread m_demux_wait_thread;
@@ -383,6 +408,7 @@ private:
     DemultiplexPolicy m_demux_impl;
     //bool m_processing_ended;
     bool m_reactor_running;
+    std::chrono::time_point<std::chrono::system_clock> m_cleanup_ts;
 };
 
 } //infra

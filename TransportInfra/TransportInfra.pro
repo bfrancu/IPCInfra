@@ -79,6 +79,7 @@ HEADERS += \
     Traits/handler_traits.hpp \
     Traits/socket_traits.hpp \
     Traits/fifo_traits.hpp \
+    Traits/device_constraints.hpp \
     Traits/transport_traits.hpp \
     ConnectionParameters.hpp \
     ConnectorClient.h \

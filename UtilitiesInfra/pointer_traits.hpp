@@ -83,9 +83,9 @@ struct deferred_copy_shared_ptr
     std::reference_wrapper<std::shared_ptr<T>> shared_ref;
     std::shared_ptr<T> p_shared{nullptr};
 };
-*/
 
 }//utils
+*/
 
 }//infra
 

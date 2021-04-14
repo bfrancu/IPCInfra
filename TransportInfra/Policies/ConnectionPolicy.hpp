@@ -108,6 +108,9 @@ public:
     }
 
     bool isConnected() const { return io::ESocketState::E_STATE_CONNECTED == this->asDerived().getState(); }
+
+protected:
+    ~ConnectionPolicy() = default;
 };
 
 template<typename Host, typename Device>
@@ -138,6 +141,9 @@ public:
     }
 
     bool isConnected() const { return this->asDerived().isOpen(); }
+
+protected:
+    ~ConnectionPolicy() = default;
 };
 
 } // infra

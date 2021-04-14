@@ -365,8 +365,7 @@ void testReactor()
         std::cout << "testReactor() problem subscribing\n";
     }
 
-    reactor.testHandlers();
-    return;
+    //reactor.testHandlers();
 
     if(!sock_dev.connect(sock_addr, non_blocking))
     {
@@ -378,6 +377,10 @@ void testReactor()
         sock_dev.write("hello bye\n");
     }
 
+    sleep(10);
+    ev_handler.listenerUnsubscribe();
+    sleep(5);
+    ev_handler.listenerSubscribe(events);
     for (;;) {}
 
 

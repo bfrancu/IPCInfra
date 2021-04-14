@@ -24,24 +24,13 @@ public:
 
     EHandleEventResult handleEvent(SubscriberID id, EHandleEvent event)
     {
-        std::cout << "BaseEventHandlingPolicy::handleEvent() id: " << id << " event1 " << static_cast<int>(event) << "\n";
-       return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
+        std::cout << "BaseEventHandlingPolicy::handleEvent() id: " << id << " event " << static_cast<int>(event) << "\n";
         std::optional<bool> optional_process_res;
-        //auto r = (m_listener_sub_id != id);
-        std::cout << "BaseEventHandlingPolicy::handleEvent() id: " << id << " event2 " << static_cast<int>(event) << "\n";
-
-       return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
-
         if (m_listener_sub_id != id)
         {
             std::cout << "BaseEventHandlingPolicy::handleEvent() returning invalid reference\n";
-            //return EHandleEventResult::E_RESULT_INVALID_REFERENCE;
-            //return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
+            return EHandleEventResult::E_RESULT_INVALID_REFERENCE;
         }
-
-        std::cout << "BaseEventHandlingPolicy::handleEvent() returning method not implemented\n";
-
-        return EHandleEventResult::E_RESULT_METHOD_NOT_IMPLEMENTED;
 
         switch(event)
         {

@@ -1,6 +1,7 @@
 #ifndef EVENTHANDLERSUBSCRIBER_H
 #define EVENTHANDLERSUBSCRIBER_H
 
+#include <iostream>
 #include <atomic>
 
 #include "EventTypes.h"
@@ -67,6 +68,7 @@ struct EventHandlerWrapper
 
     EventHandlerWrapper(const EventHandlerWrapper & other)
     {
+        std::cout << "EventHandlerWrapper::EventHandlerWrapper(const EventHandlerWrapper &)\n";
         if (other.p_event_handler)
         {
             p_event_handler = other.p_event_handler->clone();
@@ -75,6 +77,7 @@ struct EventHandlerWrapper
 
     EventHandlerWrapper(EventHandlerWrapper && other)
     {
+        std::cout << "EventHandlerWrapper::EventHandlerWrapper(EventHandlerWrapper &&)\n";
         if (other.p_event_handler)
         {
             p_event_handler = other.p_event_handler;
@@ -84,20 +87,27 @@ struct EventHandlerWrapper
 
     EventHandlerWrapper & operator=(const EventHandlerWrapper & other)
     {
+        std::cout << "EventHandlerWrapper::operator=(const EventHandlerWrapper &)\n";
         if (this == &other) return *this;
-        EventHandlerWrapper tmp(other);
-        std::swap(*this, tmp);
+        if (other.p_event_handler) {
+            p_event_handler = other.p_event_handler->clone();
+        }
         return *this;
     }
 
     EventHandlerWrapper & operator=(EventHandlerWrapper && other)
     {
-        EventHandlerWrapper tmp(std::move(other));
-        std::swap(*this, tmp);
+        std::cout << "EventHandlerWrapper::operator=(EventHandlerWrapper &&)\n";
+        if (other.p_event_handler) {
+            p_event_handler = other.p_event_handler;
+            other.p_event_handler = nullptr;
+        }
         return *this;
     }
 
-    ~EventHandlerWrapper() { if (p_event_handler) delete p_event_handler; }
+    ~EventHandlerWrapper() {
+        std::cout << "EventHandlerWrapper::~EventHandlerSubscriber()\n";
+        if (p_event_handler) delete p_event_handler; }
 
     template<typename T>
     void assign(T *p_handler)

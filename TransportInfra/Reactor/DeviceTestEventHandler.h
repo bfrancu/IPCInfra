@@ -25,20 +25,32 @@ public:
     bool onInputEvent()
     {
         std::cout << "DeviceTestEventHandler::onInputEvent()\n";
+        ssize_t size_read = m_device.read(m_local_buffer);
+        if (-1 == size_read){
+            this->asDerived().onErrorEvent();
+            return false;
+        }
+
+        std::cout << "DeviceTestEventHandler::onInputEvent() read from device: " << m_local_buffer << "\n";
+        m_local_buffer.clear();
+        return true;
     }
 
     bool onDisconnection()
     {
         std::cout << "DeviceTestEventHandler::onDisconnection()\n";
+        return true;
     }
 
     bool onErrorEvent()
     {
         std::cout << "DeviceTestEventHandler::onErrorEvent()\n";
+        return true;
     }
 
 private:
     Device & m_device;
+    std::string m_local_buffer{};
 };
 
 }//infra
