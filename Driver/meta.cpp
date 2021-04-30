@@ -113,6 +113,14 @@ namespace traits
 {
 static_assert(std::is_same_v<int, select_if_t<std::true_type, int, double>>);
 static_assert(std::is_same_v<double, select_if_t<std::false_type, int, double>>);
+
+struct Base {};
+struct Derived : Base {};
+
+static_assert(are_related_v<Base, Derived>);
+static_assert(are_related_v<Base, Base>);
+static_assert(!are_related_v<Derived, Base>);
+static_assert(!are_related_v<Base, Derived, int>);
 }
 
 namespace meta

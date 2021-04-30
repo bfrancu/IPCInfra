@@ -8,13 +8,13 @@
 
 #include <iostream>
 
-#include "LinuxUtils/LinuxIOUtilities.h"
 #include "SocketTypes.h"
-#include "Policies/StreamIOPolicy.hpp"
+#include "crtp_base.hpp"
+#include "LinuxUtils/LinuxIOUtilities.h"
+#include "Traits/socket_traits.hpp"
 
 namespace infra
 {
-
 
 template<typename Host, typename SocketDevice, typename = void>
 class DatagramIOPolicy
@@ -25,8 +25,6 @@ class DatagramIOPolicy<Host,
                        SocketDevice,
                        std::enable_if_t<std::conjunction<IsUnixPlatformSocketDeviceT<SocketDevice>, IsDatagramSocketDeviceT<SocketDevice>>::value>>
         : public crtp_base<DatagramIOPolicy<Host, SocketDevice>, Host>
-        //: public StreamIOPolicy<Host, SocketDevice>
-
 {
     using handle_type         = typename device_traits<SocketDevice>::handle_type;
     using address_type = typename socket_traits<SocketDevice>::address_type;
@@ -40,7 +38,7 @@ public:
         static std::unique_ptr<sockaddr> p_dst_addr{std::make_unique<sockaddr>()};
         memset(p_dst_addr->sa_data, 0, sizeof(p_dst_addr->sa_data));
         peer_socket.getAddress(*p_dst_addr);
-        return ::sendto(SocketDeviceAccess::getHandle(this->asDerived()),
+        return ::sendto(this->asDerived().getHandle(),
                 data.data(),
                 max_size,
                 static_cast<int>(flags),
@@ -50,7 +48,7 @@ public:
 
     ssize_t recvFromInBuffer(size_t buffer_len, SocketIOFlags flags, char *buffer, address_type & out_source){
         return utils::unx::LinuxIOUtilities::recvInBuffer(RECV_CB,
-                                                          SocketDeviceAccess::getHandle(this->asDerived()),
+                                                          this->asDerived().getHandle(),
                                                           buffer_len,
                                                           buffer,
                                                           static_cast<int>(flags),
@@ -59,7 +57,7 @@ public:
 
     ssize_t recvFrom(size_t max_length, SocketIOFlags flags, std::string & out_data, address_type & out_source){
         return utils::unx::LinuxIOUtilities::recv(RECV_CB,
-                                                  SocketDeviceAccess::getHandle(this->asDerived()),
+                                                  this->asDerived().getHandle(),
                                                   max_length, 
                                                   out_data,
                                                   static_cast<int>(flags),

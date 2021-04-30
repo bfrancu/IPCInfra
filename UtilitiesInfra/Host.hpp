@@ -1,11 +1,47 @@
 #ifndef HOST_HPP
 #define HOST_HPP
 #include "template_typelist.hpp"
+#include "traits_utils.hpp"
 #include "policies_initializer.hpp"
+#include "AccessContextHierarchy.hpp"
 
 namespace infra
 {
 
+template<typename Client,
+         template<typename... > typename... Plugins>
+class Host : public AccessContextHierarchy<Client, Plugins...>
+{
+    using ConcretePluginsTList = typename AccessContextHierarchy<Client, Plugins...>::ConcretePluginsTList;
+
+public:
+    Host() = default;
+
+    template<typename... Args,
+             typename = std::enable_if_t<!traits::are_related_v<Host, Args...>>>
+    Host(Args&&... args) :
+        AccessContextHierarchy<Client, Plugins...> (std::forward<Args>(args)...)
+    {
+        static_assert (std::is_constructible_v<Client, Args...>,
+                       "Arguments can't be used to construct Client class");
+    }
+
+    ~Host() { deinit(); }
+
+    template<typename... Args>
+    bool init(Args&&... args)
+    {
+        return initDispatch<ConcretePluginsTList>(*this, std::forward<Args>(args)...);
+        return true;
+    }
+
+    void deinit()
+    {
+        deinitDispatcher<ConcretePluginsTList>(*this);
+    }
+};
+
+/*
 template<typename Client,
          template<typename... > typename... Plugins>
 class Host : public Client,
@@ -31,6 +67,7 @@ public:
         deinitDispatcher<ConcretePluginsTList>(*this);
     }
 };
+*/
 
 template<typename Client, typename TList>
 struct PackHost;

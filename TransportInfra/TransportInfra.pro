@@ -46,6 +46,7 @@ HEADERS += \
     Devices/Pipes/NamedPipeDeviceAccess.hpp \
     Devices/Pipes/NamedPipeFactory.h \
     Devices/Pipes/NamedPipeAddress.h \
+    Devices/ProxyDevice.hpp \
     Devices/Sockets/HostAddress.hpp \
     Devices/Sockets/InetSocketAddress.hpp \
     Devices/Sockets/SocketDevice.hpp \
@@ -55,6 +56,7 @@ HEADERS += \
     Devices/TestDevice.h \
     Devices/DeviceDefinitions.h \
     Policies/AcceptorPolicy.hpp \
+    Policies/ClientCallbackPolicy.hpp \
     Policies/ConnectionPolicy.hpp \
     Policies/DatagramIOPolicy.hpp \
     Policies/ErrorChangeAdvertiserPolicy.h \

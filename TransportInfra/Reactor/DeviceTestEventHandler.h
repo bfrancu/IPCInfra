@@ -7,36 +7,31 @@
 #include "EventHandlerSubscriber.h"
 #include "Traits/device_constraints.hpp"
 #include "Policies/EventHandlingPolicy.hpp"
+#include "Policies/ClientCallbackPolicy.hpp"
 #include "SocketTypes.h"
 
 namespace infra
 {
 template<typename Device, typename Listener>
-class DeviceTestEventHandler : public infra::BaseEventHandlingPolicy<DeviceTestEventHandler<Device, Listener>, Listener>
+class DeviceTestEventHandler : public infra::BaseEventHandlingPolicy<DeviceTestEventHandler<Device, Listener>, Listener>,
+                               public infra::ClientCallbackPolicy<DeviceTestEventHandler<Device, Listener>, Device>
 {
-    using Base = infra::BaseEventHandlingPolicy<DeviceTestEventHandler<Device, Listener>, Listener>;
+    using EventHandlingBase = infra::BaseEventHandlingPolicy<DeviceTestEventHandler<Device, Listener>, Listener>;
+    using ClientServerLogicBase = infra::ClientCallbackPolicy<DeviceTestEventHandler<Device, Listener>, Device>;
+
     using address_t = typename Device::address_type;
     //using traits_t = traits::select_traits<Device>;
+    friend ClientServerLogicBase;
 
 public:
     DeviceTestEventHandler(Device & device, Listener & listener) :
-        Base(listener),
+        EventHandlingBase(listener),
         m_device(device)
     {}
 
     void init()
     {
-        Base::setHandle(infra::GenericDeviceAccess::getHandle(m_device));
-    }
-
-    bool connect(const address_t & addr, bool non_blocking)
-    {
-        std::cout << "DeviceTestEventHandler::connect()\n";
-        bool result = m_device.connect(addr, non_blocking);
-        if (non_blocking && result){
-            m_connectionInProgress.store(true);
-        }
-        return result;
+        EventHandlingBase::setHandle(infra::GenericDeviceAccess::getHandle(m_device));
     }
 
     bool onInputEvent()
@@ -56,7 +51,7 @@ public:
     bool onDisconnection()
     {
         std::cout << "DeviceTestEventHandler::onDisconnection()\n";
-        return true;
+        return ClientServerLogicBase::ProcessDisconnectionEvent();
     }
 
     bool onErrorEvent()
@@ -67,10 +62,13 @@ public:
 
     bool onWriteAvailable()
     {
+        return ClientServerLogicBase::ProcessOutputEvent();
+        /*
         if (m_connectionInProgress){
             m_connectionInProgress.store(false);
             std::cout << "DeviceTestEventHandler::onWriteAvailable() Connection established\n";
         }
+        */
 
         std::cout << "DeviceTestEventHandler::onWriteAvailable()\n";
         std::string result{"ping\n"};
@@ -80,12 +78,20 @@ public:
     }
 
     inline Device & getDevice() { return m_device; }
+    inline std::size_t & getConnectionState() { return m_connectionState; }
+
+protected:
+    void setState(EConnectionState state)
+    {
+        m_connectionState = static_cast<std::size_t>(state);
+    }
 
 private:
+    std::size_t m_connectionState;
     Device & m_device;
     std::string m_local_buffer{};
-    std::once_flag m_connectionEstablishedFlag;
-    std::atomic<bool> m_connectionInProgress{false};
+    //std::once_flag m_connectionEstablishedFlag;
+    //std::atomic<bool> m_connectionInProgress{false};
 };
 
 }//infra

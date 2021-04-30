@@ -133,19 +133,19 @@ public:
     }
 
     // Policy will be a <template<typename, typename> > Policy
+    /*
     template<typename Policy>
     Policy & getDeviceAs()
     {
         return static_cast<Policy&>(m_device);
     }
+    */
 
     inline Device & getDevice() { return m_device; }
     inline const Device & getDevice() const { return m_device; }
-    //inline Listener & getListener() { return m_listener; }
     inline const Observable<std::size_t> & getConnectionState() const { return m_connectionState; }
     inline Observable<std::size_t> & getConnectionState() { return m_connectionState; }
 
-   /*TODO Move "setState" back to protected scope*/
 protected:
     void setState(EConnectionState state)
     {
@@ -156,7 +156,6 @@ private:
     Observable<std::size_t> m_connectionState;
     bool m_initCompleted;
     AssembledDevice m_device;
-    //Listener & m_listener;
     /*
     SubscriberID m_listener_sub_id{Listener::NULL_SUBSCRIBER_ID};
     */

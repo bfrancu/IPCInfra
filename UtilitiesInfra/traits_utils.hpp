@@ -52,7 +52,22 @@ using type = typename select_if_helper<Type1, Type2, Pred::value>::type;
 template<typename Pred, typename T1, typename T2>
 using select_if_t = typename select_if<Pred, T1, T2>::type;
 
+template<typename T, typename... Ts>
+struct first_of
+{
+    using type = T;
+};
 
+template<typename T, typename... Ts>
+struct are_related : std::false_type
+{};
+
+template<typename T, typename U>
+struct are_related<T, U> : std::is_base_of<T, std::decay_t<U>>
+{};
+
+template<typename T, typename... Ts>
+constexpr bool are_related_v = are_related<T, Ts...>::value;
 
 }//traits
 

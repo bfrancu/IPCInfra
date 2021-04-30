@@ -13,8 +13,8 @@
 #include "crtp_base.hpp"
 #include "utilities.hpp"
 #include "Traits/device_constraints.hpp"
-#include "Devices/Sockets/SocketDeviceAccess.hpp"
-#include "Devices/Pipes/NamedPipeDeviceAccess.hpp"
+//#include "Devices/Sockets/SocketDeviceAccess.hpp"
+//#include "Devices/Pipes/NamedPipeDeviceAccess.hpp"
 
 namespace infra
 {
@@ -37,36 +37,27 @@ public:
         bool ret{false};
 
         if (io::ESocketState::E_STATE_DISCONNECTED == this->asDerived().getState()){
-            handle_t handle = SocketDeviceAccess::createSocketHandle<SocketDevice>();
+            handle_t handle = this->asDerived().getHandle();
 
             if (handler_traits<SocketDevice>::defaultValue() == handle) return ret;
 
-            SocketDeviceAccess::setHandle(this->asDerived(), handle);
-            SocketDeviceAccess::setState(this->asDerived(), io::ESocketState::E_STATE_AVAILABLE);
+            this->asDerived().setHandle(handle);
+            this->asDerived().setState(io::ESocketState::E_STATE_AVAILABLE);
         }
 
         if (io::ESocketState::E_STATE_AVAILABLE != this->asDerived().getState()) return ret;
 
-        auto handle = SocketDeviceAccess::getHandle(this->asDerived());
+        auto handle = this->asDerived().getHandle();
         if (non_blocking)
         {
             int flags = ::fcntl(handle, F_GETFL);
             bool res = (-1 != ::fcntl(handle, F_SETFL, flags | O_NONBLOCK));
-            //bool res = sys_call_noerr_eval(::fcntl, SocketDeviceAccess::getHandle(this->asDerived()), SOCK_NONBLOCK);
             if (!res)
             {
                 std::cout << "ConnectionPolicy::connect() fcntl SOCK_NONBLOCK failure\n";
                 return ret;
             }
         }
-
-        /*
-        if (non_blocking && !sys_call_noerr_eval(::fcntl, SocketDeviceAccess::getHandle(this->asDerived()), SOCK_NONBLOCK))
-        {
-            std::cout << "ConnectionPolicy::connect() fcntl SOCK_NONBLOCK failure\n";
-            return ret; 
-        }
-        */
 
         std::unique_ptr<sockaddr> p_addr{std::make_unique<sockaddr>()};
         sock_addr.getAddress(*p_addr);
@@ -85,21 +76,20 @@ public:
             ret = true;
         }
 
-
-        if (ret) SocketDeviceAccess::setState(this->asDerived(), io::ESocketState::E_STATE_CONNECTED);
+        if (ret) this->asDerived().setState(io::ESocketState::E_STATE_CONNECTED);
 
         return ret;
     }
 
     void disconnect(){
         if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return;
-        SocketDeviceAccess::close(this->asDerived());
-        SocketDeviceAccess::setState(this->asDerived(), io::ESocketState::E_STATE_DISCONNECTED);
+        this->asDerived().close();
+        this->asDerived().setState(io::ESocketState::E_STATE_DISCONNECTED);
     }
 
     bool shutdown(io::EShutdownHow how){
         bool ret = sys_call_noerr_eval(::shutdown, this->asDerived().getHandle(), how);
-        if (ret) SocketDeviceAccess::setState(this->asDerived(), io::ESocketState::E_STATE_SHUTDOWN);
+        if (ret) this->asDerived().setState(io::ESocketState::E_STATE_SHUTDOWN);
 
         return ret;
     }
@@ -111,8 +101,7 @@ protected:
 };
 
 template<typename Host, typename Device>
-class ConnectionPolicy<Host, Device/*traits::NamedPipeDevice<Device>*/, 
-                             std::enable_if_t<IsNamedPipeDeviceT<Device>::value && std::negation_v<IsSocketDeviceT<Device>>>>
+class ConnectionPolicy<Host, Device, std::enable_if_t<IsNamedPipeDeviceT<Device>::value && std::negation_v<IsSocketDeviceT<Device>>>>
                  : public crtp_base<ConnectionPolicy<Host, Device>, Host>
 {
     using address_t = typename fifo_traits<Device>::address_type; 
@@ -124,7 +113,7 @@ public:
     }
 
     void disconnect() {
-        NamedPipeDeviceAccess::close(this->asDerived());
+        this->asDerived().close();
     }
 
     bool shutdown(io::EShutdownHow how) {

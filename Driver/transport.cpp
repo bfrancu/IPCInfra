@@ -78,15 +78,15 @@ void transport_main()
     defaults::IPV6TcpSocketDevice ipv6_strm_dev;
     ProxyDevice<defaults::UnixFileDevice> proxy_dev;
     proxy_dev.setBaseReference(file_dev);
-    auto file_handle = file_dev.getHandle();
+    //auto file_handle = file_dev.getHandle();
     auto proxy_handle = proxy_dev.getHandle();
 
-    std::cout << "transport_main() before open, file_handle " << file_handle << " proxy_handle " << proxy_handle << "\n";
+    //std::cout << "transport_main() before open, file_handle " << file_handle << " proxy_handle " << proxy_handle << "\n";
 
     file_dev.open("/home/bfrancu/Documents/Work/Projects/IPCInfra/TransportInfra/Devices/TestDevice.h", io::EAccessMode::E_READ_ONLY);
     //file_dev.close();
 
-    std::cout << "transport_main() after open file_handle " << file_handle << " proxy_handle " << proxy_handle << "\n";
+    //std::cout << "transport_main() after open file_handle " << file_handle << " proxy_handle " << proxy_handle << "\n";
     using assembled_proxy_t = Host<ProxyDevice<defaults::UnixFileDevice>,
                                       ResourceStatusPolicy, SeekableOperations>;
 

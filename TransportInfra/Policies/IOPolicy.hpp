@@ -10,7 +10,6 @@
 #include <type_traits>
 
 #include "crtp_base.hpp"
-#include "Devices/GenericDeviceAccess.hpp"
 #include "Traits/device_traits.hpp"
 #include "Traits/device_constraints.hpp"
 #include "LinuxUtils/LinuxIOUtilities.h"
@@ -25,7 +24,6 @@ class GenericIOPolicy{};
 
 template<typename Host, typename Device>
 class GenericIOPolicy<Host, Device, std::enable_if_t<IsUnixPlatformSocketDeviceT<Device>::value>> 
-        //: public crtp_base<GenericIOPolicy<Host, Device>, Host>
         : public StreamIOPolicy<Host, Device>
 {
      using handle_type = typename device_traits<Device>::handle_type;
@@ -54,16 +52,15 @@ class GenericIOPolicy<Host, Device, std::enable_if_t<HasUnixHandleTypeT<Device>:
         : public crtp_base<GenericIOPolicy<Host, Device>, Host>
 {
      using handle_type = typename device_traits<Device>::handle_type;
-     //using base = crtp_base<GenericIOPolicy<Host, Device>, Host>;
 
 public:
-    ssize_t read(std::string & result){ return utils::unx::LinuxIOUtilities::read(GenericDeviceAccess::getHandle(this->asDerived()), result);}
+    ssize_t read(std::string & result){ return utils::unx::LinuxIOUtilities::read(this->asDerived().getHandle(), result);}
 
-    size_t readLine(std::string & result){ return utils::unx::LinuxIOUtilities::readLine(GenericDeviceAccess::getHandle(this->asDerived()), result); }
+    size_t readLine(std::string & result){ return utils::unx::LinuxIOUtilities::readLine(this->asDerived().getHandle(), result); }
 
-    ssize_t readInBuffer(size_t buffer_len, char *buffer){ return utils::unx::LinuxIOUtilities::readInBuffer(GenericDeviceAccess::getHandle(this->asDerived()), buffer_len, buffer); }
+    ssize_t readInBuffer(size_t buffer_len, char *buffer){ return utils::unx::LinuxIOUtilities::readInBuffer(this->asDerived().getHandle(), buffer_len, buffer); }
 
-    ssize_t write(std::string_view data) { return utils::unx::LinuxIOUtilities::write(GenericDeviceAccess::getHandle(this->asDerived()), data); }
+    ssize_t write(std::string_view data) { return utils::unx::LinuxIOUtilities::write(this->asDerived().getHandle(), data); }
 
 protected:
     ~GenericIOPolicy() = default;

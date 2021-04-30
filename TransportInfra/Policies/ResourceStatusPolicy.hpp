@@ -7,7 +7,6 @@
 #include "FileInfo.h"
 #include "FileStatusFlags.h"
 #include "FilePermissions.h"
-#include "Devices/GenericDeviceAccess.hpp"
 #include "Traits/handler_traits.hpp"
 #include "Traits/device_constraints.hpp"
 
@@ -26,22 +25,22 @@ class ResourceStatusPolicy<Host, Device, std::void_t<traits::UnixDevice<Device>>
 public:
     bool isReadable() const{
         using namespace io;
-        FileStatusFlags flags{GenericDeviceAccess::getHandle(this->asDerived())};
+        FileStatusFlags flags{this->asDerived().getHandle()};
         return (EAccessMode::E_READ_ONLY == flags.accessMode() || EAccessMode::E_READ_WRITE == flags.accessMode());
     }
 
     bool isWritable() const{
         using namespace io;
-        FileStatusFlags flags{GenericDeviceAccess::getHandle(this->asDerived())};
+        FileStatusFlags flags{this->asDerived().getHandle()};
         return (EAccessMode::E_WRITE_ONLY == flags.accessMode() || EAccessMode::E_READ_WRITE == flags.accessMode());
     }
 
     inline bool isTty() const {
-        return 1 == ::isatty(GenericDeviceAccess::getHandle(this->asDerived()));
+        return 1 == ::isatty(this->asDerived().getHandle());
     }
 
     inline uint64_t position() const{
-        return ::lseek(GenericDeviceAccess::getHandle(this->asDerived()), 0, SEEK_CUR);
+        return ::lseek(this->asDerived().getHandle(), 0, SEEK_CUR);
     }
 
     inline off_t bytesAvailable() const {
@@ -62,21 +61,12 @@ public:
 
 protected:
     inline io::FileInfo fileInfo() const{
-        return io::FileInfo{GenericDeviceAccess::getHandle(this->asDerived())};
+        return io::FileInfo{this->asDerived().getHandle()};
     }
 
     inline io::FileStatusFlags fileStatusFlags() const{
-        return io::FileStatusFlags{GenericDeviceAccess::getHandle(this->asDerived())};
+        return io::FileStatusFlags{this->asDerived().getHandle()};
     }
-
-    /*
-private:
-    Derived & asDerived(){
-        return *static_cast<Derived*>(this);
-    }
-    const Derived & asDerived() const{
-        return *static_cast<Derived const*>(this);
-    }*/
 };
 
 }

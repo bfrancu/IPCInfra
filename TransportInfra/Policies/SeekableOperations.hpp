@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include "crtp_base.hpp"
-#include "Devices/GenericDeviceAccess.hpp"
 #include "FileIODefinitions.h"
 #include "Traits/device_traits.hpp"
 
@@ -25,15 +24,15 @@ class SeekableOperations
 
 template<typename Host, typename Device>
 class SeekableOperations<Host, Device, std::void_t<std::enable_if_t<IsSeekableDeviceT<Device>::value>>> :
-        public crtp_base<SeekableOperations<Host, Device, std::void_t<std::enable_if_t<IsSeekableDeviceT<Device>::value>>>, Host>
+        public crtp_base<SeekableOperations<Host, Device>, Host>
 {
 public:
-    uint64_t position() const{
-        return ::lseek(GenericDeviceAccess::getHandle(this->asDerived()), SEEK_CUR);
+    uint64_t currentPosition() const{
+        return ::lseek(this->asDerived().getHandle(), 0, SEEK_CUR);
     }
 
     bool seek(int64_t distance_from, io::ESeekWhence origin){
-        return -1 != ::lseek(GenericDeviceAccess::getHandle(this->asDerived()), distance_from, static_cast<int>(origin));
+        return -1 != ::lseek(this->asDerived().getHandle(), distance_from, static_cast<int>(origin));
     }
 
     bool seekFromStart(uint64_t pos_from_start){
@@ -45,7 +44,7 @@ public:
     }
 
     bool goToStartPosition(){
-        auto current_pos = position();
+        auto current_pos = currentPosition();
         if (-1 == current_pos) return false;
         return seekFromCurrent(-current_pos);
     }

@@ -726,16 +726,20 @@ void testDevicePolicies()
     Host<FileDevice<UnixResourceHandler>, GenericIOPolicy,
                                            SeekableOperations,
                                            ResourceStatusPolicy> file{filename};
+    file.init();
 
     if (file.open(io::EAccessMode::E_READ_WRITE))
     {
         std::string content;
         file.seek(4, io::ESeekWhence::E_SEEK_SET);
         file.read(content);
+        std::cout << "file pos: " << file.currentPosition();
         std::cout << content;
         std::cout << "\n type: " << infra::utils::to_underlying(file.fileType()) << "\n";
         file.close();
     }
+
+    file.deinit();
 }
 
 

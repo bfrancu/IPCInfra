@@ -2,6 +2,7 @@
 #define CLIENT_CALLBACK_POLICY_HPP
 #include <atomic>
 #include <type_traits>
+#include <iostream>
 
 #include "Devices/DeviceDefinitions.h"
 #include "Traits/utilities_traits.hpp"
@@ -51,6 +52,7 @@ protected:
         if (m_connectionInProgress){
             m_connectionInProgress.store(false);
             this->asDerived().setState(EConnectionState::E_CONNECTED);
+            std::cout << "ClientCallbackPolicy::ProcessOutputEvent(): connection established\n";
         }
         return true;
     }

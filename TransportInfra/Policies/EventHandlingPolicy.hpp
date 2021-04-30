@@ -6,7 +6,6 @@
 
 #include "crtp_base.hpp"
 #include "Reactor/EventTypes.h"
-#include "Devices/GenericDeviceAccess.hpp"
 
 namespace infra
 {

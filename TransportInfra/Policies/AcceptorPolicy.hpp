@@ -11,7 +11,6 @@
 #include "sys_call_eval.h"
 #include "Traits/device_constraints.hpp"
 #include "Devices/Sockets/SocketDeviceAccess.hpp"
-#include "Devices/Pipes/NamedPipeDeviceAccess.hpp"
 
 namespace infra
 {

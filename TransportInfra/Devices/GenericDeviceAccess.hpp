@@ -8,15 +8,6 @@ class GenericDeviceAccess
     template<typename Device>
     friend class ProxyDevice;
 
-    template<typename Host, typename Device, typename>
-    friend class SeekableOperations;
-
-    template<typename Host, typename Device, typename>
-    friend class GenericIOPolicy;
-    
-    template<typename Host, typename Device, typename>
-    friend class ResourceStatusPolicy;
-
     template<typename, typename>
     friend class Connector;
 

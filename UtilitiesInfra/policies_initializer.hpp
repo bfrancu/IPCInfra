@@ -7,17 +7,33 @@
 namespace infra
 {
 
-template<typename Subject, typename... Args>
-bool invokeInit(Subject && subject, Args&&... args)
+class InitDelegator
 {
-    if constexpr (std::is_invocable_v<decltype(&Subject::init), Subject, Args...>){
-        return std::forward<Subject>(subject).init(std::forward<Args>(args)...);
+    DEFINE_HAS_MEMBER(init);
+public:
+    template<typename Subject, typename... Args>
+    static bool invokeInit(Subject && subject, Args&&... args)
+    {
+        return invokeInitImpl(has_member_init<std::decay_t<Subject>>{},
+                              std::forward<Subject>(subject), std::forward<Args>(args)...);
     }
-    else if constexpr(std::is_invocable_v<decltype(&Subject::init), Subject>) {
-        return std::forward<Subject>(subject).init();
+
+protected:
+    template<typename... Args>
+    static bool invokeInitImpl(std::false_type, Args&&...) { return true; }
+
+    template<typename Subject, typename... Args>
+    static bool invokeInitImpl(std::true_type, Subject && subject, Args&&... args)
+    {
+        if constexpr (std::is_invocable_v<decltype(&Subject::init), Subject, Args...>){
+            return std::forward<Subject>(subject).init(std::forward<Args>(args)...);
+        }
+        else if constexpr(std::is_invocable_v<decltype(&Subject::init), Subject>) {
+            return std::forward<Subject>(subject).init();
+        }
+        return true;
     }
-    return true;
-}
+};
 
 template<typename TList, std::size_t N>
 struct init_helper
@@ -28,7 +44,7 @@ struct init_helper
         bool result{true};
         if constexpr (N < meta::tl::size_v<TList> - 1){
             using object_t = meta::tl::nth_element_t<TList, N>;
-            result = invokeInit(static_cast<object_t&>(subject), std::forward<Args>(args)...)
+            result = InitDelegator::invokeInit(static_cast<object_t&>(subject), std::forward<Args>(args)...)
                      && init_helper<TList, N+1>::dispatch(subject, std::forward<Args>(args)...);
         }
         return result;
@@ -41,14 +57,15 @@ bool initDispatch(Subject & subject, Args&&... args)
     return init_helper<TList, 0>::dispatch(subject, std::forward<Args>(args)...);
 }
 
-template<typename Subject, typename = std::void_t<decltype(&Subject::deinit)>>
-void invokeDeinit(Subject & subject) { subject.deinit(); }
 
 template<typename TList, std::size_t N>
 struct deinit_helper
 {
     template<typename T>
     static void invokeDeinit(T&) {}
+
+    template<typename Subject, typename = std::void_t<decltype(&Subject::deinit)>>
+    static void invokeDeinit(Subject & subject) { subject.deinit(); }
 
     template<typename Subject>
     static void dispatch(Subject & subject)

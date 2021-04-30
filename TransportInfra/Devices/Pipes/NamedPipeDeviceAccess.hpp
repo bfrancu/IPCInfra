@@ -6,6 +6,7 @@ namespace infra
 {
 class NamedPipeDeviceAccess 
 {
+    /*
     template<typename Host, typename FifoDevice, typename>
     friend class ConnectionPolicy;
 
@@ -20,6 +21,7 @@ class NamedPipeDeviceAccess
 
     template<typename Device>
     static decltype(auto) getHandle(const Device & device) { return device.getHandle(); }
+    */
 };
 
 } //infra
