@@ -14,6 +14,7 @@
 #include "Policies/DispatcherPolicy.hpp"
 #include "Policies/StateChangeAdvertiserPolicy.hpp"
 #include "Policies/SeekableOperations.hpp"
+#include "Policies/ClientCallbackPolicy.hpp"
 #include "Devices/DeviceFactory.hpp"
 #include "Devices/DefaultDeviceDefinitions.h"
 #include "Traits/device_traits.hpp"
@@ -80,6 +81,8 @@ struct default_client_traits
     using Listener = Reactor<int, demux::EpollDemultiplexer<int>>;
     using EventHandlingPolicy = meta::ttl::pack<BaseEventHandlingPolicy>;
     using DispatcherPolicy = meta::ttl::pack<BaseDispatcherPolicy>;
+    using ClientServerRolePolicy = meta::ttl::pack<ClientCallbackPolicy>;
+    //using ClientServerRolePolicy = meta::ttl::pack<TestClientPolicy>;
 };
 
 template<typename client_traits = default_client_traits>

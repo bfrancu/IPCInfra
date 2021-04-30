@@ -29,6 +29,16 @@ enum EDeviceType
     E_LAST_DEVICE
 };
 
+enum class EConnectionState : std::size_t
+{
+    E_AVAILABLE = 0,
+    E_CONNECTING,
+    E_CONNECTED,
+    E_DISCONNECTING,
+    E_DISCONNECTED,
+    E_ERROR
+};
+
 static constexpr auto ipv4_strm_tag = static_cast<std::size_t>(EDeviceType::E_IPV4_TCP_SOCKET_DEVICE);
 static constexpr auto ipv4_dgram_tag = static_cast<std::size_t>(EDeviceType::E_IPV4_UDP_SOCKET_DEVICE);
 static constexpr auto ipv6_strm_tag = static_cast<std::size_t>(EDeviceType::E_IPV6_TCP_SOCKET_DEVICE);

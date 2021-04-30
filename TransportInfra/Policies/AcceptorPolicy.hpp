@@ -5,11 +5,11 @@
 #include <memory>
 
 #include "SocketTypes.h"
-
+#include "FileInfo.h"
+#include "LinuxUtils/LinuxIOUtilities.h"
 #include "crtp_base.hpp"
 #include "sys_call_eval.h"
-#include "Traits/socket_traits.hpp"
-#include "Traits/fifo_traits.hpp"
+#include "Traits/device_constraints.hpp"
 #include "Devices/Sockets/SocketDeviceAccess.hpp"
 #include "Devices/Pipes/NamedPipeDeviceAccess.hpp"
 
@@ -21,15 +21,20 @@ template<typename Host, typename SocketDevice,
 class AcceptorPolicy {};
 
 
-template <typename Host, typename SocketDevice>
-class AcceptorPolicy<Host, SocketDevice, std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>
-        : public crtp_base<AcceptorPolicy<Host, SocketDevice>, Host>
+template<typename Host, typename SocketDevice,
+         typename = void>
+class SocketAcceptorBasePolicy;
+
+template<typename Host, typename SocketDevice>
+class SocketAcceptorBasePolicy<Host, traits::UnixPlatformSocketDevice<SocketDevice>> :
+    public crtp_base<SocketAcceptorBasePolicy<Host, SocketDevice>, Host>
 {
+protected:
     using handle_type  = typename device_traits<SocketDevice>::handle_type;
     using address_type = typename socket_traits<SocketDevice>::address_type;
 
-public:
-    bool bind(const address_type & sock_addr, bool reusable = true){
+protected:
+    bool bind(const address_type & sock_addr, bool reusable){
         if (io::ESocketState::E_STATE_AVAILABLE != this->asDerived().getState()) return false;
 
         setReusableAddressOpt(reusable);
@@ -48,7 +53,7 @@ public:
         return false;
     }
 
-    bool listen(int backlog = 50){
+    bool listen(int backlog){
         if (io::ESocketState::E_STATE_BINDED != this->asDerived().getState()) return false;
 
         if (sys_call_zero_eval(::listen,
@@ -62,18 +67,8 @@ public:
         return false;
     }
 
-    SocketDevice accept(bool non_blocking = false){
-        return acceptImpl(non_blocking);
-    }
-
-    /*
-    SocketDevice acceptNonBlock(){
-        return accept(true);
-    }
-    */
-
-    bool isBinded() const { return io::ESocketState::E_STATE_BINDED == this->asDerived().getState(); }
-    bool isListening() const { return io::ESocketState::E_STATE_LISTENING == this->asDerived().getState(); }
+    inline bool isBinded() const { return io::ESocketState::E_STATE_BINDED == this->asDerived().getState(); }
+    inline bool isListening() const { return io::ESocketState::E_STATE_LISTENING == this->asDerived().getState(); }
     bool isAddressReusable() const {
         int opt_val{0};
         socklen_t val_size = static_cast<socklen_t>(sizeof(opt_val));
@@ -98,11 +93,7 @@ public:
                                    sizeof(opt_val));
     }
 
-protected:
-    ~AcceptorPolicy() = default;
-
-protected:
-    SocketDevice acceptImpl(bool non_blocking) {
+    SocketDevice accept(bool non_blocking) {
         SocketDevice peer_sock;
         if (io::ESocketState::E_STATE_LISTENING != this->asDerived().getState()) return peer_sock;
 
@@ -127,7 +118,86 @@ protected:
         }
         return peer_sock;
     }
+
+protected:
+    ~SocketAcceptorBasePolicy() = default;
 };
+
+template <typename Host, typename SocketDevice>
+class AcceptorPolicy<Host, SocketDevice, std::enable_if_t<IsUnixPlatformSocketDeviceT<SocketDevice>::value &&
+                                                          !IsUnixSocketDeviceT<SocketDevice>::value>>
+        : public SocketAcceptorBasePolicy<Host, SocketDevice>
+{
+protected:
+    using Base = SocketAcceptorBasePolicy<Host, SocketDevice>;
+    using handle_type = typename Base::handle_type;
+    using address_type = typename Base::address_type;
+
+public:
+    bool bind(const address_type & sock_addr, bool reusable = true){ return Base::bind(sock_addr, reusable); }
+    bool listen(int backlog = 50){ return Base::listen(backlog); }
+    SocketDevice accept(bool non_blocking = false)  { return Base::accept(non_blocking); }
+
+    inline bool isBinded() const { return Base::isBinded(); }
+    inline bool isListening() const{ return Base::isListening(); }
+    bool isAddressReusable() const{ return Base::isAddressReusable(); }
+    bool setReusableAddressOpt(bool reusable){ return Base::setReusableAddressOpt(reusable); }
+
+protected:
+    ~AcceptorPolicy() = default;
+};
+
+template<typename Host, typename SocketDevice>
+class AcceptorPolicy<Host, SocketDevice, std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>
+       : public SocketAcceptorBasePolicy<Host, SocketDevice>
+{
+protected:
+    using Base = SocketAcceptorBasePolicy<Host, SocketDevice>;
+    using handle_type = typename Base::handle_type;
+    using address_type = typename Base::address_type;
+
+public:
+    using test_type = int;
+
+    bool bind(const address_type & sock_addr, bool reusable = true){ 
+        sockaddr_un tmp_sockaddr;
+        memset(&tmp_sockaddr, 0, sizeof(sockaddr_un));
+        sock_addr.getAddress(tmp_sockaddr);
+        m_socket_pathname.reserve(sizeof(tmp_sockaddr.sun_path));
+        m_socket_pathname.assign(tmp_sockaddr.sun_path);
+
+        return Base::bind(sock_addr, reusable); 
+    }
+
+    bool listen(int backlog = 50){ return Base::listen(backlog); }
+    SocketDevice accept(bool non_blocking = false)  { return Base::accept(non_blocking); }
+
+    inline bool isBinded() const { return Base::isBinded(); }
+    inline bool isListening() const{ return Base::isListening(); }
+    bool isAddressReusable() const{ return Base::isAddressReusable(); }
+    bool setReusableAddressOpt(bool reusable){ return Base::setReusableAddressOpt(reusable); }
+
+protected:
+    ~AcceptorPolicy()
+    {
+        if (!m_socket_pathname.empty())
+        {
+            if (utils::unx::LinuxIOUtilities::exists(m_socket_pathname))
+            {
+                io::FileInfo fileInfo{m_socket_pathname};
+                if (io::EFileType::E_LOCAL_SOCKET == fileInfo.type())
+                {
+                    utils::unx::LinuxIOUtilities::remove(m_socket_pathname);
+                }
+            }
+            m_socket_pathname.clear();
+        }
+    }
+
+private:
+    std::string m_socket_pathname{};
+};
+
 
 template<typename Host, typename Device>
 class AcceptorPolicy<Host, Device, std::enable_if_t<IsNamedPipeDeviceT<Device>::value &&

@@ -1,6 +1,9 @@
 #include <fcntl.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <cstring>
+#include <sys/types.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include <string>
@@ -27,7 +30,6 @@ namespace
 constexpr char END_LINE_CHAR{'\n'};
 constexpr char PATH_SEPARATOR{'/'};
 constexpr unsigned int PATH_MAX{4096};
-constexpr unsigned int READ_BUFFER_SIZE{4096};
 constexpr int NULL_DESCRIPTOR{-1};
 const std::string TEMP_FILE_EXTENSION{".tmp"};
 
@@ -284,14 +286,15 @@ bool LinuxIOUtilities::makefifo(const std::string &pathname)
 size_t LinuxIOUtilities::read(int fd, std::string &result)
 {
     char read_buffer[READ_BUFFER_SIZE];
-    size_t total_size_read{0};
+    ssize_t total_size_read{0};
     int read_count_per_call{0};
 
-    if (NULL_DESCRIPTOR == fd) return total_size_read;
-
-    if (auto in_size = LinuxIOUtilities::availableSize(fd);
-        -1 != in_size){
-        result.reserve(in_size);
+    if (auto in_size = availableSize(fd); -1 != in_size){
+        if (static_cast<int>(result.size()) < in_size){
+            result.resize(in_size);
+        }
+        total_size_read = readInBuffer(fd, result.size() - 1, result.data());
+        return total_size_read;
     }
 
     memset(read_buffer, 0, READ_BUFFER_SIZE);
@@ -299,7 +302,10 @@ size_t LinuxIOUtilities::read(int fd, std::string &result)
         read_count_per_call = ::read(fd, read_buffer, READ_BUFFER_SIZE);
         if (-1 == read_count_per_call){
             if (EINTR == errno) continue;
-            else break;
+            else{
+                total_size_read = -1;
+                break;
+            }
         }
 
         result.append(read_buffer, read_count_per_call);
@@ -308,68 +314,69 @@ size_t LinuxIOUtilities::read(int fd, std::string &result)
         // the buffer is not fully filled. no more data available
         if (READ_BUFFER_SIZE != read_count_per_call) break;
     }
-
-    return  total_size_read;
+    return total_size_read;
 }
 
 size_t LinuxIOUtilities::readLine(int fd, std::string &result)
 {
     char read_buffer[READ_BUFFER_SIZE];
-    char * read_buffer_end{nullptr};
+    const char * read_buffer_end{nullptr};
     size_t total_size_read{0};
     int read_count_per_call{0};
-
-    if (NULL_DESCRIPTOR == fd) return total_size_read;
 
     result.reserve(READ_BUFFER_SIZE);
     memset(read_buffer, 0, READ_BUFFER_SIZE);
 
-    do{
+    for(;;){
         read_count_per_call = ::read(fd, read_buffer, READ_BUFFER_SIZE);
         if (-1 == read_count_per_call){
             if (EINTR == errno) continue;
             else break;
-        }        
+        }
+
+        if(0 == read_count_per_call) break;
 
         read_buffer_end = read_buffer + read_count_per_call;
-        auto endline_pos = std::find_if(read_buffer, read_buffer_end, [] (auto ch){ return END_LINE_CHAR == ch; });
+        auto endline_pos = std::find_if(const_cast<const char*>(read_buffer), read_buffer_end, [] (char ch){ return END_LINE_CHAR == ch; });
 
         auto copiable_chars_count = (endline_pos == read_buffer_end ? read_count_per_call
-                                                                    : static_cast<size_t>(std::distance(read_buffer, endline_pos)));
+                : static_cast<size_t>(std::distance(std::cbegin(read_buffer), endline_pos)));
 
         result.append(read_buffer, copiable_chars_count);
         total_size_read += copiable_chars_count;
 
-        if (copiable_chars_count != static_cast<size_t>(read_count_per_call)) break;
-
-    }while(0 != read_count_per_call);
+        if (static_cast<int>(copiable_chars_count) != read_count_per_call) break;
+    }
 
     result.shrink_to_fit();
     return total_size_read;
 }
 
-size_t LinuxIOUtilities::readInBuffer(int fd, size_t buffer_len, char *buffer)
+size_t LinuxIOUtilities::readInBuffer(int fd, size_t buffer_len, char *out_buffer)
 {
-    size_t size_read{0};
+    ssize_t size_read{0};
+    ssize_t read_count_per_call{0};
+    memset(out_buffer, 0, buffer_len);
 
-    if (NULL_DESCRIPTOR == fd) return size_read;
+    for (;;){
+        read_count_per_call = ::read(fd, out_buffer, buffer_len);
+        if (-1 == read_count_per_call){
+            if (EINTR == errno) continue;
+            else{
+                size_read = -1;
+                break;
+            }
 
+            size_read += read_count_per_call;
 
-    for (;;)
-    {
-        ssize_t read_count = ::read(fd, buffer, buffer_len);
-        if (-1 == read_count && EINTR == errno) continue;
-
-        if (read_count > 0)
-        {
-            size_read = static_cast<size_t>(read_count);
+            // the buffer is not fully filled. no more data available
+            if (static_cast<ssize_t>(buffer_len) != read_count_per_call) break;
         }
-        break;
     }
     return size_read;
 }
 
-ssize_t LinuxIOUtilities::write(int fd, const std::string &data)
+/*ssize_t LinuxIOUtilities::write(int fd, const std::string &data)
 {
     auto data_len{data.length()};
     ssize_t total_size_written{0};
@@ -388,7 +395,115 @@ ssize_t LinuxIOUtilities::write(int fd, const std::string &data)
     }
 
     return total_size_written;
+}*/
+
+ssize_t LinuxIOUtilities::write(int fd, std::string_view data)
+{
+    //std::cout << "IOPolicy::write(handle)\n";
+    auto data_len{data.length()};
+    ssize_t total_size_written{0};
+    ssize_t write_count_per_call{0};
+
+    while (total_size_written < static_cast<ssize_t>(data_len))
+    {
+        write_count_per_call = ::write(fd, data.data() + total_size_written,
+                data_len - total_size_written);
+        if (-1 == write_count_per_call){
+            if (EINTR == errno) continue;
+            else break;
+        }
+
+        total_size_written += write_count_per_call;
+    }
+
+    return total_size_written;
 }
+
+ssize_t LinuxIOUtilities::send(int fd, std::string_view data, size_t max_size, SocketIOFlags flags)
+{
+    return ::send(fd, data.data(), max_size, static_cast<int>(flags));
+}
+
+/*
+template<typename RecvFunc, typename... Args>
+ssize_t LinuxIOUtilities::recvInBuffer(RecvFunc && callable, int fd, size_t max_size, char *buffer, int flags, Args&&... additional_args)
+{
+    memset(buffer, 0, max_size);
+    ssize_t read_count_per_call{0};
+    ssize_t ret_total_size_read{0};
+    //call blocks until length bytes have been received
+    if (static_cast<int>(io::ESocketIOFlag::E_MSG_WAITALL) & flags)
+    {
+        return std::forward<RecvFunc>(callable)(fd, buffer, max_size, flags, std::forward<Args>(additional_args)...);
+    }
+
+    for (;;)
+    {
+        read_count_per_call = std::forward<RecvFunc>(callable)(fd, buffer, max_size, flags, std::forward<Args>(additional_args)...);
+
+        if (-1 == read_count_per_call){
+            if (EINTR == errno) continue;
+            else break;
+        }
+        if (0 == read_count_per_call) break;
+
+        ret_total_size_read += read_count_per_call;
+
+        if (static_cast<ssize_t>(max_size) >= read_count_per_call) break;
+    }
+    return ret_total_size_read;
+}
+
+template<typename RecvFunc, typename... Args>
+ssize_t LinuxIOUtilities::recv(RecvFunc && callable, int fd, size_t max_length, std::string & result, int flags, Args&&... additional_args)
+{
+    result.clear();
+    char buf[READ_BUFFER_SIZE];
+    ssize_t ret_total_size_read{0};
+    ssize_t read_count_per_call{0};
+    memset(buf, 0, READ_BUFFER_SIZE);
+
+    //call blocks until length bytes have been received
+    if (static_cast<int>(io::ESocketIOFlag::E_MSG_WAITALL) & flags)
+    {
+        ret_total_size_read = std::forward<RecvFunc>(callable)(fd, buf, max_length, flags, std::forward<Args>(additional_args)...);
+
+        if (ret_total_size_read > 0){
+            result.assign(buf, static_cast<size_t>(ret_total_size_read));
+        }
+    }
+
+    for (;;)
+    {
+        read_count_per_call = std::forward<RecvFunc>(callable)(fd, buf, max_length, flags, std::forward<Args>(additional_args)...);
+
+        if (-1 == read_count_per_call){
+            if (EINTR == errno) continue;
+            else break;
+        }
+        if (0 == read_count_per_call) break;
+
+        if((ret_total_size_read + read_count_per_call) > static_cast<ssize_t>(max_length)){
+            result.reserve(max_length - static_cast<size_t>(ret_total_size_read));
+            result.append(buf, max_length - static_cast<size_t>(ret_total_size_read));
+            ret_total_size_read = static_cast<ssize_t>(max_length);
+            break;
+        }
+
+        if (auto capacity = result.capacity(); capacity + read_count_per_call < result.max_size()){
+            result.reserve(capacity + read_count_per_call);
+        }
+
+        result.append(buf, static_cast<size_t>(read_count_per_call));
+        ret_total_size_read += read_count_per_call;
+
+        //the buffer is not fully filled. no more data available
+        if (READ_BUFFER_SIZE != read_count_per_call) break;
+    }
+
+    return ret_total_size_read;
+}
+*/
 
 } //lnx
 } //utils

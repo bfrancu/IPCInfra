@@ -27,6 +27,7 @@ SOURCES += \
     runtime_dispatcher.cpp
 
 HEADERS += \
+    AccessContextHierarchy.hpp \
     Host.hpp \
     InetUtils/InetUtilities.h \
     LinuxUtils/LinuxIOUtilities.h \

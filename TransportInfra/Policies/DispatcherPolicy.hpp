@@ -5,12 +5,14 @@
 #include <string>
 
 #include "traits_utils.hpp"
+#include "SocketTypes.h"
 
 namespace infra
 {
 
 DEFINE_HAS_MEMBER(read);
- 
+DEFINE_HAS_MEMBER(send);
+
 template<typename Device,
          typename = std::enable_if_t<has_member_read<Device>::value>>
 using ReadableDevice = Device;

@@ -4,6 +4,7 @@
 #include "Host.hpp"
 #include "Reactor/EventTypes.h"
 #include "Devices/GenericDeviceAccess.hpp"
+#include "Devices/DeviceDefinitions.h"
 #include "Policies/ConnectionStateChangeAdvertiser.hpp"
 #include "Observable.hpp"
 
@@ -71,15 +72,21 @@ private:
 template <typename AssembledDevice,
           template<typename...> typename EventHandlingPolicy,
           template<typename...> typename DispatcherPolicy,
+          template<typename...> typename ClientServerRolePolicy,
           typename Listener,
           typename StateChangeCallbackDispatcher = SerialCallbackDispatcher,
           typename Enable = void>
-class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, Listener>,
-                          public DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, AssembledDevice>,
-                          public ConnectionStateAdvertiser<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, StateChangeCallbackDispatcher>
+class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, Listener>,
+                          public DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>,
+                          public ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>,
+                          public ConnectionStateAdvertiser<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, StateChangeCallbackDispatcher>
 {
-    using EventHandlingBase = EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, Listener>;
-    using DispatcherBase = DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, Listener>, AssembledDevice>;
+    using EventHandlingBase = EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, Listener>;
+    using DispatcherBase = DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy,  Listener>, AssembledDevice>;
+    using ClientServerLogicBase = ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>;
+
+    //friend class ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>;
+    friend ClientServerLogicBase;
 
 public:
     using Device = AssembledDevice;
@@ -91,23 +98,30 @@ public:
     {}
 
 public:
+    /* TODO DELEGATE all the callback methods to a separate Policy - depending if it's client or server
+     * TODO Expose the connect method in the ClientPolicy interface to be able to change the connection state
+     *      during and after the operation --> see DeviceTestHandler
+     */
     bool onInputEvent()
     {
-        return DispatcherBase::ProcessInputEvent();
+        return ClientServerLogicBase::ProcessInputEvent() && DispatcherBase::ProcessInputEvent();
     }
+
+    bool onWriteAvailable() 
+    {
+        return ClientServerLogicBase::ProcessOutputEvent();
+    };
 
     bool onDisconnection()
     {
         DispatcherBase::ProcessDisconnection();
-        // change state to something specific
-        return true;
+        return ClientServerLogicBase::ProcessDisconnectionEvent();
     }
 
     bool onErrorEvent()
     {
         // error handling policy?
-        m_device.disconnect();
-        return true;
+        return ClientServerLogicBase::ProcessErrorEvent();
     }
 
     template<typename U>
@@ -125,9 +139,18 @@ public:
         return static_cast<Policy&>(m_device);
     }
 
-    inline AssembledDevice & getDevice() { return m_device; }
+    inline Device & getDevice() { return m_device; }
+    inline const Device & getDevice() const { return m_device; }
     //inline Listener & getListener() { return m_listener; }
-    const Observable<std::size_t> & getConnectionState() const { return m_connectionState; }
+    inline const Observable<std::size_t> & getConnectionState() const { return m_connectionState; }
+    inline Observable<std::size_t> & getConnectionState() { return m_connectionState; }
+
+   /*TODO Move "setState" back to protected scope*/
+protected:
+    void setState(EConnectionState state)
+    {
+        m_connectionState = static_cast<std::size_t>(state);
+    }
 
 private:
     Observable<std::size_t> m_connectionState;

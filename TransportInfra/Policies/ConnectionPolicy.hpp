@@ -60,7 +60,6 @@ public:
             }
         }
 
-
         /*
         if (non_blocking && !sys_call_noerr_eval(::fcntl, SocketDeviceAccess::getHandle(this->asDerived()), SOCK_NONBLOCK))
         {
@@ -72,20 +71,18 @@ public:
         std::unique_ptr<sockaddr> p_addr{std::make_unique<sockaddr>()};
         sock_addr.getAddress(*p_addr);
 
-        /*
         ret = sys_call_zero_eval(::connect,
-                               SocketDeviceAccess::getHandle(this->asDerived()),
-                               p_addr.get(),
-                               static_cast<socklen_t>(sock_addr.getAddressLength())
-                               );
-        */
-        auto res = ::connect(handle, p_addr.get(), static_cast<socklen_t>(sock_addr.getAddressLength()));
-        ret = (0 == res);
+                                 handle,
+                                 p_addr.get(),
+                                 static_cast<socklen_t>(sock_addr.getAddressLength()));
+        //auto res = ::connect(handle, p_addr.get(), static_cast<socklen_t>(sock_addr.getAddressLength()));
+        //ret = (0 == res);
 
-        std::cout << "ConnectionPolicy::connect() res: " << res << " errno: " << errno << "\n";
-        if (EINPROGRESS == errno)
+        std::cout << "ConnectionPolicy::connect() ret: " << ret << " errno: " << errno << "\n";
+        if (non_blocking && (EINPROGRESS == errno) && !ret)
         {
             std::cout << "ConnectionPolicy::connect() operation in progress\n";
+            ret = true;
         }
 
 

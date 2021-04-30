@@ -349,7 +349,7 @@ protected:
             }
 
             SubscriberID sub_id = m_demux_impl.getKeyFor(event_notification.handle);
-            std::cout << "Reactor::eventProcessingThread() new event incoming; subscriber id: " << sub_id << " thread " << std::this_thread::get_id() << "\n";
+            std::cout << "Reactor::eventProcessingThread() new event incoming; subscriber id: " << sub_id  << "\n"; //<< " thread " << std::this_thread::get_id() << "\n";
             auto [sub_info, value_found] = m_subscribers_table.value_for(sub_id);
             if (value_found && !sub_info.expired){
                 if (!setHandlerInProgress(sub_id, true)){

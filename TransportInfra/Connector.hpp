@@ -76,16 +76,16 @@ namespace infra
 
             std::cout << "Connector::setup() Device was set\n";
             device_host_t & device = p_endpoint->getDevice();
-            bool async_mode{false};
+            bool non_blocking{true};
 
             handle_t handle = GenericDeviceAccess::getHandle(device);
-            events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
+            events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_OUT>();
 
             if (SubscriberID id = m_demultiplexer.subscribe(subscribed_events, handle, *this);
                     Demultiplexer::NULL_SUBSCRIBER_ID != id){
 
                 std::cout << "Connector::setup() subscribed to demultiplexer.\n";
-                if (device.connect(addr, async_mode)){
+                if (device.connect(addr, non_blocking)){
                     auto p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, ITransportEndpoint>(
                                               std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
 
@@ -115,7 +115,7 @@ namespace infra
                 return EHandleEventResult::E_RESULT_INVALID_REFERENCE;
             }
             
-            if (EHandleEvent::E_HANDLE_EVENT_IN == event)
+            if (EHandleEvent::E_HANDLE_EVENT_OUT == event)
             {
                 handleConnectionSuccess(client_it);
                 return EHandleEventResult::E_RESULT_SUCCESS;

@@ -15,6 +15,9 @@ class SocketDeviceAccess
     friend class AcceptorPolicy;
 
     template<typename Host, typename SocketDevice, typename>
+    friend class SocketAcceptorBasePolicy;
+
+    template<typename Host, typename SocketDevice, typename>
     friend class StreamIOPolicy;
 
     template<typename Host, typename SocketDevice, typename>

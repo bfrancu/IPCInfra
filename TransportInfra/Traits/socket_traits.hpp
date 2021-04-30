@@ -142,13 +142,27 @@ struct CompatibleSocketDevices<SocketA,
 {};
 
 /*template <typename T>
-struct IsUnixSocketDeviceT : std::conjunction<HasUnixHandleTypeT<T>, IsSocketDeviceT<T>>
+struct IsUnixPlatformSocketDeviceT : std::conjunction<HasUnixHandleTypeT<T>, IsSocketDeviceT<T>>
 {};*/
 
 template<typename Device,
          typename IsSocket =  traits::select_if_t<IsSocketDeviceT<Device>, 
                                                   std::true_type,
                                                   std::false_type>>
+struct IsUnixPlatformSocketDeviceT;
+
+template<typename Device>
+struct IsUnixPlatformSocketDeviceT<Device, std::false_type> : std::false_type
+{};
+
+template<typename Device>
+struct IsUnixPlatformSocketDeviceT<Device, std::true_type> : HasUnixHandleTypeT<Device>
+{};
+
+template<typename Device,
+         typename IsUnixPlatformSocket = traits::select_if_t<IsUnixPlatformSocketDeviceT<Device>,
+                                                             std::true_type,
+                                                             std::false_type>>
 struct IsUnixSocketDeviceT;
 
 template<typename Device>
@@ -156,8 +170,11 @@ struct IsUnixSocketDeviceT<Device, std::false_type> : std::false_type
 {};
 
 template<typename Device>
-struct IsUnixSocketDeviceT<Device, std::true_type> : HasUnixHandleTypeT<Device>
-{};
+struct IsUnixSocketDeviceT<Device, std::true_type>
+{
+    using SocketAddress = typename Device::address_type;
+    static constexpr bool value = std::is_same_v<typename SocketAddress::address_type, sockaddr_un>;
+};
 
 } //infra
 /*

@@ -13,7 +13,7 @@
 #include "SocketTypes.h"
 #include "Traits/socket_traits.hpp"
 #include "Devices/Sockets/SocketDeviceAccess.hpp"
-
+#include "LinuxUtils/LinuxIOUtilities.h"
 
 
 namespace infra
@@ -29,30 +29,46 @@ class StreamIOPolicy
 template<typename Host, typename SocketDevice>
 class StreamIOPolicy<Host,
                        SocketDevice,
-                       std::enable_if_t<IsUnixSocketDeviceT<SocketDevice>::value>>
+                       std::enable_if_t<IsUnixPlatformSocketDeviceT<SocketDevice>::value>>
         : public crtp_base<StreamIOPolicy<Host, SocketDevice>, Host>
 {
-    using handle_type         = typename device_traits<SocketDevice>::handle_type;
-    using address_type = typename socket_traits<SocketDevice>::address_type;
+    using handle_type  = typename device_traits<SocketDevice>::handle_type;
 
 public:
-    ssize_t send(std::string_view data, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
+    ssize_t send(std::string_view data, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NOSIGNAL}){
         return send(data, data.length(), flags);
     }
 
-    ssize_t send(std::string_view data, size_t max_size, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NO_FLAG}){
-        if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return -1;
-        return ::send(SocketDeviceAccess::getHandle(this->asDerived()),
-                      data.data(),
-                      max_size,
-                      static_cast<int>(flags));
+    ssize_t send(std::string_view data, size_t max_size, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NOSIGNAL}){
+        //if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return -1;
+        return utils::unx::LinuxIOUtilities::send(SocketDeviceAccess::getHandle(this->asDerived()), data, max_size, flags);
+    }
+
+    ssize_t recvInBuffer(size_t buffer_len, SocketIOFlags flags, char *buffer){
+        //if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return -1;
+        return utils::unx::LinuxIOUtilities::recvInBuffer(RECV_CB,
+                                                          SocketDeviceAccess::getHandle(this->asDerived()),
+                                                          buffer_len,
+                                                          buffer,
+                                                          static_cast<int>(flags));
     }
 
     ssize_t recv(size_t max_length, SocketIOFlags flags, std::string & out_data){
-        if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return -1;
-        using namespace std::placeholders;
-        auto recv_cb = std::bind(::recv, SocketDeviceAccess::getHandle(this->asDerived()), _1, _2, _3);
-        return recvLogic(recv_cb, max_length, flags, out_data);
+        //if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return -1;
+        //using namespace std::placeholders;
+        //static auto recv_cb = std::bind(::recv, SocketDeviceAccess::getHandle(this->asDerived()), _1, _2, _3);
+        //
+        /*
+        static auto recv_callable = [] (int sockfd, void *buffer, size_t length, int flags){
+            return ::recv(sockfd, buffer, length, flags);
+        };*/
+
+        return utils::unx::LinuxIOUtilities::recv(RECV_CB,
+                                                  SocketDeviceAccess::getHandle(this->asDerived()),
+                                                  max_length,
+                                                  out_data,
+                                                  static_cast<int>(flags));
+        //return recvLogic(recv_cb, max_length, flags, out_data);
     }
 
     std::string recv(size_t max_length, SocketIOFlags flags){
@@ -63,6 +79,9 @@ public:
 
 protected:
     using recv_callable = std::function<ssize_t(char *, size_t, int)>;
+    static constexpr auto RECV_CB{[] (int sockfd, void *buffer, size_t length, int flags){
+                                      return ::recv(sockfd, buffer, length, flags);}};
+
     inline static constexpr unsigned int READ_BUFFER_SIZE{4096};
 
 protected:
@@ -111,7 +130,6 @@ protected:
         }
         return ret_total_size_read;
     }
-
 };
 
 } //infra

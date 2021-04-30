@@ -344,7 +344,6 @@ void testReactor()
     using DevicePoliciesT = meta::ttl::template_typelist<ConnectionPolicy, GenericIOPolicy>;
     using TcpSocketDeviceT = PackHostT<defaults::IPV4TcpSocketDevice, DevicePoliciesT>;
 
-    TcpSocketDeviceT sock_dev_;
     TcpSocketDeviceT sock_dev;
     ReactorT reactor;
     DeviceTestEventHandler<TcpSocketDeviceT, ReactorT> ev_handler(sock_dev, reactor);
@@ -352,13 +351,14 @@ void testReactor()
     reactor.start();
 
     uint16_t port{55123};
-    bool non_blocking{false};
+    bool non_blocking{true};
     IPV4NetworkAddress network_addr{IPV4HostAddr::AddressAny(), port};
     IPV4InetSocketAddress sock_addr{network_addr};
-    events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
+    events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_OUT, EHandleEvent::E_HANDLE_EVENT_IN>();
+
     if (ev_handler.listenerSubscribe(events))
     {
-        std::cout << "testReactor() successfully subscribed to reactor thread " << std::this_thread::get_id() << "\n";
+        std::cout << "testReactor() successfully subscribed to reactor\n";
     }
     else
     {
@@ -366,8 +366,9 @@ void testReactor()
     }
 
     //reactor.testHandlers();
-
-    if(!sock_dev.connect(sock_addr, non_blocking))
+    //sleep(5);
+    std::cout << "\ntestReactor() Commencing connection \n\n\n\n\n\n";
+    if(!ev_handler.connect(sock_addr, non_blocking))
     {
         std::cout << "testReactor() socket device connection failed\n";
     }
@@ -377,10 +378,10 @@ void testReactor()
         sock_dev.write("hello bye\n");
     }
 
-    sleep(10);
-    ev_handler.listenerUnsubscribe();
-    sleep(5);
-    ev_handler.listenerSubscribe(events);
+    //sleep(10);
+    //ev_handler.listenerUnsubscribe();
+    //sleep(5);
+    //ev_handler.listenerSubscribe(events);
     for (;;) {}
 
 
@@ -439,15 +440,64 @@ void testDeviceFactory()
 void testGetEventsArray()
 {
     using namespace infra;
-    events_array my_arr = getArray<EHandleEvent::E_HANDLE_EVENT_IN, EHandleEvent::E_HANDLE_EVENT_PRIO_IN,
-                                   EHandleEvent::E_HANDLE_EVENT_SHUTDOWN, EHandleEvent::E_HANDLE_EVENT_ERR,
-                                   EHandleEvent::E_HANDLE_EVENT_OUT, EHandleEvent::E_HANDLE_EVENT_IN,
+    using namespace demux;
+
+    events_array my_arr = getArray<EHandleEvent::E_HANDLE_EVENT_IN, 
+                                   EHandleEvent::E_HANDLE_EVENT_PRIO_IN,
+                                   EHandleEvent::E_HANDLE_EVENT_SHUTDOWN,
+                                   EHandleEvent::E_HANDLE_EVENT_ERR,
+                                   EHandleEvent::E_HANDLE_EVENT_OUT,
+                                   EHandleEvent::E_HANDLE_EVENT_IN,
                                    EHandleEvent::E_HANDLE_EVENT_LAST>();
 
+    /*
     for (EHandleEvent event : my_arr)
     {
         std::cout << "event: " << static_cast<int>(event) << "\n";
     }
+    */
+
+    events_array blank_events = getArray<>();
+    auto blank_events_mask = getEventsMask(blank_events);
+
+    epoll_event sub_event;
+    std::cout << "Blank epoll event mask: " << sub_event.events << "\n";
+    std::cout << "Blank custom event mask: " << blank_events_mask << "\n";
+
+    events_array in_events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
+    auto in_events_mask = getEventsMask(in_events);
+    sub_event.events = EPOLLIN;
+    std::cout << "IN epoll event mask: " << sub_event.events << "\n";
+    std::cout << "IN custom event mask: " << in_events_mask << "\n";
+
+    events_array in_out_events = getArray<EHandleEvent::E_HANDLE_EVENT_IN,
+                                          EHandleEvent::E_HANDLE_EVENT_OUT>();
+
+    epoll_event in_out_sub_event;
+    in_out_sub_event.events = EPOLLIN;
+    in_out_sub_event.events |= EPOLLOUT;
+
+    auto in_out_events_mask = getEventsMask(in_out_events);
+    std::cout << "EPOLLIN " << EPOLLIN << "\n";
+    std::cout << "EPOLLOUT " << EPOLLOUT << "\n";
+    std::cout << "IN_OUT epoll event mask: " << in_out_sub_event.events << "\n";
+    std::cout << "IN_OUT custom event mask: " << in_out_events_mask << "\n";
+
+    events_array in_out_prio_shutdown_err_hup_events = getArray<EHandleEvent::E_HANDLE_EVENT_SHUTDOWN,
+                                                                EHandleEvent::E_HANDLE_EVENT_OUT,
+                                                                EHandleEvent::E_HANDLE_EVENT_IN,
+                                                                EHandleEvent::E_HANDLE_EVENT_HUP,
+                                                                EHandleEvent::E_HANDLE_EVENT_ERR,
+                                                                EHandleEvent::E_HANDLE_EVENT_PRIO_IN>();
+
+    epoll_event in_out_prio_shutdown_err_hup_sub_event;
+    in_out_prio_shutdown_err_hup_sub_event.events = EPOLLIN;
+    in_out_prio_shutdown_err_hup_sub_event.events |= (EPOLLOUT | EPOLLPRI | EPOLLERR | EPOLLHUP | EPOLLRDHUP);
+
+    auto in_out_prio_shutdown_err_hup_events_mask = getEventsMask(in_out_prio_shutdown_err_hup_events);
+    
+    std::cout << "full epoll event mask: " << in_out_prio_shutdown_err_hup_sub_event.events << "\n";
+    std::cout << "full custom event mask: " << in_out_prio_shutdown_err_hup_events_mask << "\n";
 
 }
 

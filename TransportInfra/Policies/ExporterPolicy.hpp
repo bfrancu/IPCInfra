@@ -1,8 +1,8 @@
 #ifndef EXPORTERPOLICY_HPP
 #define EXPORTERPOLICY_HPP
 #include "template_typelist.hpp"
-#include "traits_utils.hpp"
 
+#include "TransportDefinitions.h"
 #include "Devices/ProxyDevice.hpp"
 
 namespace infra
@@ -14,11 +14,9 @@ class Ancestor{};
 template<typename TTList>
 struct Exporter;
 
-DEFINE_HAS_MEMBER(getDevice);
-DEFINE_HAS_TYPE(Device);
 
 template<typename T,
-         typename HasDeviceType = traits::select_if_t<has_type_Device<T>,
+         typename HasDeviceType = traits::select_if_t<def::has_type_Device<T>,
                                                       std::true_type,
                                                       std::false_type>>
 struct ExposesDevice;
@@ -28,7 +26,7 @@ struct ExposesDevice<T, std::false_type> : std::false_type
 {};
 
 template<typename T>
-struct ExposesDevice<T, std::true_type> : has_member_getDevice<T>
+struct ExposesDevice<T, std::true_type> : def::has_member_getDevice<T>
 {};
 
 

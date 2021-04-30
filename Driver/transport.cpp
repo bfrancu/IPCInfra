@@ -7,6 +7,7 @@
 #include "Reactor/EpollDemultiplexer.h"
 #include "Traits/device_constraints.hpp"
 #include "Traits/transport_traits.hpp"
+#include "Traits/utilities_traits.hpp"
 #include "Devices/Sockets/SocketDevice.hpp"
 #include "Devices/Pipes/NamedPipeDevice.hpp"
 #include "Devices/Pipes/NamedPipeAddress.h"
@@ -15,11 +16,13 @@
 #include "Devices/DefaultDeviceDefinitions.h"
 #include "Devices/ProxyDevice.hpp"
 #include "Policies/UnixResourceHandler.h"
+#include "Policies/ClientCallbackPolicy.hpp"
 #include "Devices/DeviceDefinitions.h"
 #include "Policies/FifoIOPolicy.hpp"
 #include "Policies/ConnectionPolicy.hpp"
 #include "Policies/ResourceStatusPolicy.hpp"
 #include "Policies/SeekableOperations.hpp"
+#include "Policies/AcceptorPolicy.hpp"
 #include "Reactor/Reactor.hpp"
 #include "ConnectorClient.h"
 #include "Host.hpp"
@@ -105,6 +108,10 @@ void transport_main()
     assembled_proxy_t3 proxy_host3;
     proxy_host3.setBaseReference(ipv6_strm_dev);
     std::cout << " file type: " << utils::to_underlying(proxy_host3.fileType()) << "\n";
+
+    using UnixSocketWithPolicies = PackHostT<defaults::UnixStreamSocketDevice,
+                                         meta::ttl::template_typelist<AcceptorPolicy>>;
+    UnixSocketWithPolicies s{};
 }
 
 static_assert(std::is_same_v<typename ProxyDevice<defaults::UnixFileDevice>::handle_type, 
@@ -194,15 +201,24 @@ static_assert(!test_is_datagram_socket_device<defaults::WriteFifoDevice>::value)
 static_assert(!test_is_datagram_socket_device<defaults::UnixFileDevice>::value);
 
 template<typename T, typename = void>
+struct test_is_unix_platform_socket_device : std::false_type {};
+
+template<typename T>
+struct test_is_unix_platform_socket_device<T, std::void_t<traits::UnixPlatformSocketDevice<T>>> : std::true_type {};
+
+static_assert(test_is_unix_platform_socket_device<defaults::UnixStreamSocketDevice>::value);
+static_assert(test_is_unix_platform_socket_device<defaults::UnixDgramSocketDevice>::value);
+static_assert(test_is_unix_platform_socket_device<defaults::IPV4TcpSocketDevice>::value);
+static_assert(!test_is_unix_platform_socket_device<defaults::ReadFifoDevice>::value);
+
+template<typename T, typename = void>
 struct test_is_unix_socket_device : std::false_type {};
 
 template<typename T>
 struct test_is_unix_socket_device<T, std::void_t<traits::UnixSocketDevice<T>>> : std::true_type {};
 
 static_assert(test_is_unix_socket_device<defaults::UnixStreamSocketDevice>::value);
-static_assert(test_is_unix_socket_device<defaults::UnixDgramSocketDevice>::value);
-static_assert(test_is_unix_socket_device<defaults::IPV4TcpSocketDevice>::value);
-static_assert(!test_is_unix_socket_device<defaults::ReadFifoDevice>::value);
+static_assert(!test_is_unix_socket_device<defaults::IPV6UdpSocketDevice>::value);
 
 static_assert(UnixSocketRequires<UnixResourceHandler, unx::UnixSocketAddress>::value);
 static_assert(!UnixSocketRequires<UnixResourceHandler, IPV4InetSocketAddress>::value);
@@ -287,6 +303,9 @@ using FileWithPoliies = PackHostT<defaults::UnixFileDevice,
                                   meta::ttl::template_typelist<FifoIOPolicy,
                                   ResourceStatusPolicy>>;
 
+
+
+//static_assert(std::is_same_v<int, typename UnixSocketWithPolicies::test_type>);
 //make an empty policy class that is partial specialized by traits
 //each specialization exposes a different type
 //assert that type to test the specialization by trait
@@ -301,11 +320,11 @@ struct dgram_socket_device_test_tag{};
 
 template<typename Host, typename Device>
 struct TestPolicy<Host, 
-                         traits::UnixSocketDevice<Device>
+                         traits::UnixPlatformSocketDevice<Device>
                          //Device,
-                         //std::void_t<traits::UnixSocketDevice<Device>>
-                         //std::void_t<std::enable_if_t<IsUnixSocketDeviceT<Device>::value>>
-                         //std::enable_if_t<IsUnixSocketDeviceT<Device>::value>
+                         //std::void_t<traits::UnixPlatformSocketDevice<Device>>
+                         //std::void_t<std::enable_if_t<IsUnixPlatformSocketDeviceT<Device>::value>>
+                         //std::enable_if_t<IsUnixPlatformSocketDeviceT<Device>::value>
                          >
       : public crtp_base<TestPolicy<Host, Device>, Host>
 {
@@ -316,7 +335,7 @@ struct TestPolicy<Host,
 template<typename Host, typename Device>
 struct TestPolicy<Host,
                        traits::NamedPipeDevice<Device>
-                       //std::enable_if_t<UnixNamedPipeDevice<Device>::value && std::negation_v<IsUnixSocketDeviceT<Device>>>
+                       //std::enable_if_t<UnixNamedPipeDevice<Device>::value && std::negation_v<IsUnixPlatformSocketDeviceT<Device>>>
                       > 
       : public crtp_base<TestPolicy<Host, Device>, Host>
 {
@@ -343,6 +362,35 @@ static_assert(std::is_same_v<typename DeviceAddressFactory<ipv6_dgram_tag>::Devi
 static_assert(std::is_same_v<typename DeviceAddressFactory<unx_strm_tag>::DeviceAddressT, unx::UnixSocketAddress>);
 static_assert(std::is_same_v<typename DeviceAddressFactory<read_fifo_tag>::DeviceAddressT, NamedPipeAddress>);
 
+
+DEFINE_HAS_TYPE(Device);
+DEFINE_HAS_MEMBER(connect);
+DEFINE_HAS_MEMBER(disconnect);
+DEFINE_HAS_MEMBER(fail);
+
+using UnxStrmClientTransportEndpoint = typename transport_traits<unx_strm_tag, default_client_traits>::transport_endpoint_t;
+static_assert(has_type_Device<UnxStrmClientTransportEndpoint>::value);
+
+using UnxStrmClientDevice = typename UnxStrmClientTransportEndpoint::Device;
+
+static_assert(has_member_connect<UnxStrmClientDevice>::value);
+static_assert(has_member_disconnect<UnxStrmClientDevice>::value);
+
+static_assert(HasConnectableDevice<UnxStrmClientTransportEndpoint>::value);
+
+/*
+struct TestClientCallbackPolicy : public ClientCallbackPolicy<TestClientCallbackPolicy, defaults::IPV4TcpSocketDevice>
+{
+    using Device = defaults::IPV4TcpSocketDevice;
+    using addr_t = typename Device::address_type;
+};
+*/
+
+//using TestClientCallbackPolicyDevice = typename TestClientCallbackPolicy::Device;
+//static_assert(has_type_Device<TestClientCallbackPolicy>::value);
+//static_assert (HasConnectableDevice<TestClientCallbackPolicy>::value);
+
+static_assert(has_member_connect<UnxStrmClientTransportEndpoint>::value);
 
 }
 }//transport

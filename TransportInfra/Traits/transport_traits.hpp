@@ -16,19 +16,22 @@ namespace infra
              typename Listener,
              typename TransportPolicies,
              typename EventHandlingPolicy,
-             typename DispatcherPolicy>
+             typename DispatcherPolicy,
+             typename ClientServerRolePolicy>
     struct generate_transport_endpoint;
 
     template<typename DeviceHost,
              typename Listener,
              typename TransportPolicies,
              template <typename...> typename EventHandlingPolicy,
-             template <typename...> typename DispatcherPolicy>
+             template <typename...> typename DispatcherPolicy,
+             template <typename...> typename ClientServerRolePolicy>
     struct generate_transport_endpoint<DeviceHost, Listener, TransportPolicies,
                                        meta::ttl::pack<EventHandlingPolicy>,
-                                       meta::ttl::pack<DispatcherPolicy>>
+                                       meta::ttl::pack<DispatcherPolicy>,
+                                       meta::ttl::pack<ClientServerRolePolicy>>
     {
-        using type = PackHostT<TransportEndpoint<DeviceHost, EventHandlingPolicy, DispatcherPolicy, Listener>,
+        using type = PackHostT<TransportEndpoint<DeviceHost, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>,
                                  meta::ttl::remove_duplicates_t<TransportPolicies>>;
     };
 
@@ -36,8 +39,9 @@ namespace infra
              typename Listener,
              typename TransportPolicies,
              typename EventHandlingPolicy,
-             typename DispatcherPolicy>
-    using generate_transport_endpoint_t = typename generate_transport_endpoint<DeviceHost, Listener, TransportPolicies, EventHandlingPolicy, DispatcherPolicy>::type;
+             typename DispatcherPolicy,
+             typename ClientServerRolePolicy>
+    using generate_transport_endpoint_t = typename generate_transport_endpoint<DeviceHost, Listener, TransportPolicies, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy>::type;
 
     template<typename TTList>
     struct generate_hierarchy;
@@ -79,7 +83,8 @@ namespace infra
         using transport_endpoint_t = generate_transport_endpoint_t<device_host_t, typename ClientTraits::Listener,
                                                                                   transport_policies_t,
                                                                                   typename ClientTraits::EventHandlingPolicy,
-                                                                                  typename ClientTraits::DispatcherPolicy>;
+                                                                                  typename ClientTraits::DispatcherPolicy,
+                                                                                  typename ClientTraits::ClientServerRolePolicy>;
     };
 
     template<typename ResourceHandler,

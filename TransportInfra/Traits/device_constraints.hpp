@@ -29,9 +29,13 @@ template<typename Device,
 using DatagramSocketDevice = Device;
 
 template<typename Device,
-         typename = std::enable_if_t<IsUnixSocketDeviceT<Device>::value
+         typename = std::enable_if_t<IsUnixPlatformSocketDeviceT<Device>::value
                                      //&& std::negation_v<IsNamedPipeDeviceT<Device>>
                             >>
+using UnixPlatformSocketDevice = Device;
+
+template<typename Device,
+        typename = std::enable_if_t<IsUnixSocketDeviceT<Device>::value>>
 using UnixSocketDevice = Device;
 
 template<typename Device,

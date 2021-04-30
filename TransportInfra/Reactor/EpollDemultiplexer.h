@@ -160,15 +160,22 @@ public:
             }
 
             for (int i = 0; i < epoll_items_ready; ++i){
-                std::cout << "EpollDemultiplexer::monitorWaitThread() new events on fd before " << events_list[i].data.fd 
-                    << " events mask: " << events_list[i].events << "\n";
+                std::cout << "EpollDemultiplexer::monitorWaitThread() new events mask: " << events_list[i].events << "\n";
                 /* If EPOLLIN and EPOLLHUP were both set, then there might be more than MAX_BUF bytes to read. Therefore, we close
                 the file descriptor only if EPOLLIN was not set. We'll read further bytes after the next epoll_wait(). 
                 Michael Kerisk - The Linux Programming Interface, 63.4.3*/
                 if ((events_list[i].events & EPOLLHUP) && (events_list[i].events & EPOLLIN)){
                     events_list[i].events = (events_list[i].events & ~EPOLLHUP);
                 }
-                std::cout << "EpollDemultiplexer::monitorWaitThread() new events on fd after " << events_list[i].data.fd << "\n";
+                std::cout << "EpollDemultiplexer::monitorWaitThread() passing events mask: " << events_list[i].events << "\n";
+                if (events_list[i].events & EPOLLERR)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() error event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLHUP)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() hangup event received errno: " << errno << "\n";
+                }
                 m_consumer_queue.push(EventNotification<handle_t>{events_list[i].data.fd, events_list[i].events});
             }
         }
@@ -181,6 +188,12 @@ protected:
         //using namespace sys;
         epoll_event subscription_event;
         subscription_event.events = events_mask;
+        std::cout << "EpollDemultiplexer::registerImpl() subscription mask: " << subscription_event.events << "\n";
+        subscription_event.events |= EPOLLIN;
+        std::cout << "EpollDemultiplexer::registerImpl() subscription mask after EPOLLIN: " << subscription_event.events << "\n";
+        subscription_event.events |= EPOLLOUT;
+        std::cout << "EpollDemultiplexer::registerImpl() subscription mask after EPOLLOUT: " << subscription_event.events << "\n";
+        subscription_event.events |= (EPOLLIN | EPOLLPRI | EPOLLOUT);
         subscription_event.events |= (EPOLLHUP | EPOLLERR);
         subscription_event.events |= EPOLLRDHUP;
         subscription_event.events |= EPOLLET;
