@@ -21,9 +21,12 @@
 #include "Policies/FifoIOPolicy.hpp"
 #include "Policies/ConnectionPolicy.hpp"
 #include "Policies/ResourceStatusPolicy.hpp"
+#include "Policies/IOPolicy.hpp"
 #include "Policies/SeekableOperations.hpp"
 #include "Policies/AcceptorPolicy.hpp"
+#include "Policies/ExporterPolicy.hpp"
 #include "Reactor/Reactor.hpp"
+#include "Reactor/DeviceTestEventHandler.h"
 #include "ConnectorClient.h"
 #include "Host.hpp"
 #include "template_typelist.hpp"
@@ -51,7 +54,23 @@ class PolicyHierarchy<Host,
                       Device,
                       meta::ttl::template_typelist<Policies...>> : public Policies<Host, Device>...
 {};
-                      
+
+template<typename Dev>
+struct DeviceHolder
+{
+    using Device = Dev;
+    using handle_type = typename Device::handle_type;
+    using platform = unix_platform;
+
+    DeviceHolder(Device & device):
+        m_device(device)
+    {}
+
+    Device & getDevice() { return m_device; }
+    //handle_type getHandle() { return m_device.getHandle(); }
+
+    Device & m_device;
+};
 
 //template<template <typename...> typename... Policis>
 
@@ -71,6 +90,8 @@ void testConnectorClient()
     client.init(config_section);
 }
 
+DEFINE_HAS_MEMBER(init);
+
 void transport_main()
 {
     defaults::UnixFileDevice file_dev;
@@ -83,7 +104,7 @@ void transport_main()
 
     //std::cout << "transport_main() before open, file_handle " << file_handle << " proxy_handle " << proxy_handle << "\n";
 
-    file_dev.open("/home/bfrancu/Documents/Work/Projects/IPCInfra/TransportInfra/Devices/TestDevice.h", io::EAccessMode::E_READ_ONLY);
+    //file_dev.open("/home/bfrancu/Documents/Work/Projects/IPCInfra/TransportInfra/Devices/TestDevice.h", io::EAccessMode::E_READ_ONLY);
     //file_dev.close();
 
     //std::cout << "transport_main() after open file_handle " << file_handle << " proxy_handle " << proxy_handle << "\n";
@@ -109,9 +130,41 @@ void transport_main()
     proxy_host3.setBaseReference(ipv6_strm_dev);
     std::cout << " file type: " << utils::to_underlying(proxy_host3.fileType()) << "\n";
 
-    using UnixSocketWithPolicies = PackHostT<defaults::UnixStreamSocketDevice,
-                                         meta::ttl::template_typelist<AcceptorPolicy>>;
+    using UnixSocketWithPolicies = PackHostT<defaults::UnixStreamSocketDevice, meta::ttl::template_typelist<AcceptorPolicy>>;
     UnixSocketWithPolicies s{};
+
+    using exported_policies_t = meta::ttl::template_typelist<ResourceStatusPolicy, SeekableOperations>;
+    using reactor_t = Reactor<int, demux::EpollDemultiplexer<int>>;
+    using device_policies_t = exported_policies_t;
+    using file_device_t = PackHostT<defaults::UnixFileDevice, device_policies_t>;
+    //using dev_holder_t = DeviceTestEventHandler<file_device_t, reactor_t>;
+    using dev_holder_t = DeviceHolder<file_device_t>;
+
+    //using assembled_dev_holder_t1 = PackHostT<dev_holder_t, meta::ttl::template_typelist<Exporter<exported_policies_t>::template Policy>>;
+    //using assembled_dev_holder_t1 = PackHostT<defaults::UnixFileDevice, meta::ttl::template_typelist<Exporter<exported_policies_t>::template Policy>>;
+    using assembled_dev_holder_t1 = Host<dev_holder_t, Exporter<exported_policies_t>::template Policy, GenericIOPolicy>;
+    //using exported_policy = Exporter<exported_policies_t>::template Policy<
+    //reactor_t reactor;
+    file_device_t file_dev_host;
+    assembled_dev_holder_t1 dev_t1(file_dev_host);
+    std::cout << "Initialising device...\n\n\n";
+    dev_t1.init();
+    if(!file_dev_host.open("/home/bfrancu/Documents/Work/Projects/IPCInfra/TransportInfra/Devices/TestDevice.h", io::EAccessMode::E_READ_ONLY))
+    {
+        std::cerr << "file open fail with errno " << errno << "\n";
+    }
+    std::cout << "Exporter file device; is readable: " << dev_t1.isReadable() << "\n";
+    std::string content;
+    /*
+    if (0 < dev_t1.read(content))
+    {
+        std::cout << content << "\n";
+    }
+    else
+    {
+        std::cout << "problem reading\n";
+    }
+    */
 }
 
 static_assert(std::is_same_v<typename ProxyDevice<defaults::UnixFileDevice>::handle_type, 
@@ -334,8 +387,8 @@ struct TestPolicy<Host,
 
 template<typename Host, typename Device>
 struct TestPolicy<Host,
-                       traits::NamedPipeDevice<Device>
-                       //std::enable_if_t<UnixNamedPipeDevice<Device>::value && std::negation_v<IsUnixPlatformSocketDeviceT<Device>>>
+                       //traits::NamedPipeDevice<Device>
+                       Device, std::enable_if_t<UnixNamedPipeDevice<Device>::value && std::negation_v<IsUnixPlatformSocketDeviceT<Device>>>
                       > 
       : public crtp_base<TestPolicy<Host, Device>, Host>
 {

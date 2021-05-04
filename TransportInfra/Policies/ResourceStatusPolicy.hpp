@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "crtp_base.hpp"
+#include "default_traits.hpp"
 #include "FileInfo.h"
 #include "FileStatusFlags.h"
 #include "FilePermissions.h"
@@ -25,7 +26,13 @@ class ResourceStatusPolicy<Host, Device, std::void_t<traits::UnixDevice<Device>>
 public:
     bool isReadable() const{
         using namespace io;
-        FileStatusFlags flags{this->asDerived().getHandle()};
+        auto handle = this->asDerived().getHandle();
+        //std::cout << "ResourceStatusPolicy::isReadable() handle " << handle << "\n";
+        if (meta::traits::default_value<typename Device::handle_type>::value == handle) {
+            //std::cout << "ResourceStatusPolicy::isReadable() invalid descriptor\n";
+            return false;
+        }
+        FileStatusFlags flags{handle};
         return (EAccessMode::E_READ_ONLY == flags.accessMode() || EAccessMode::E_READ_WRITE == flags.accessMode());
     }
 

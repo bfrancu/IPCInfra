@@ -285,19 +285,26 @@ bool LinuxIOUtilities::makefifo(const std::string &pathname)
 
 size_t LinuxIOUtilities::read(int fd, std::string &result)
 {
+    //std::cout << "LinuxIOUtilities::read(int, std::string &)\n";
     char read_buffer[READ_BUFFER_SIZE];
     ssize_t total_size_read{0};
     int read_count_per_call{0};
 
     if (auto in_size = availableSize(fd); -1 != in_size){
+        //std::cout << "LinuxIOUtilities::read() available size: " << in_size <<"\n";
         if (static_cast<int>(result.size()) < in_size){
             result.resize(in_size);
         }
         total_size_read = readInBuffer(fd, result.size() - 1, result.data());
         return total_size_read;
     }
+    else
+    {
+        //std::cout << "LinuxIOUtilities::read() available size not available: " << in_size <<"\n";
+    }
 
     memset(read_buffer, 0, READ_BUFFER_SIZE);
+    //std::cout << "LinuxIOUtilities::read() before loop\n";
     for (;;){
         read_count_per_call = ::read(fd, read_buffer, READ_BUFFER_SIZE);
         if (-1 == read_count_per_call){
@@ -354,9 +361,15 @@ size_t LinuxIOUtilities::readLine(int fd, std::string &result)
 
 size_t LinuxIOUtilities::readInBuffer(int fd, size_t buffer_len, char *out_buffer)
 {
+    //std::cout << "LinuxIOUtilities::readInBuffer() buffer len: " << buffer_len << "\n";
     ssize_t size_read{0};
     ssize_t read_count_per_call{0};
     memset(out_buffer, 0, buffer_len);
+
+    if (0 == buffer_len)
+    {
+        return size_read;
+    }
 
     for (;;){
         read_count_per_call = ::read(fd, out_buffer, buffer_len);
@@ -366,12 +379,13 @@ size_t LinuxIOUtilities::readInBuffer(int fd, size_t buffer_len, char *out_buffe
                 size_read = -1;
                 break;
             }
-
-            size_read += read_count_per_call;
-
-            // the buffer is not fully filled. no more data available
-            if (static_cast<ssize_t>(buffer_len) != read_count_per_call) break;
         }
+
+        size_read += read_count_per_call;
+        //std::cout << "size read: " << size_read << "n";
+
+        // the buffer is not fully filled. no more data available
+        if (static_cast<ssize_t>(buffer_len) != read_count_per_call) break;
     }
     return size_read;
 }

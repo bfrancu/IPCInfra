@@ -49,6 +49,12 @@ constexpr std::size_t size_v = size<TList>::value;
 template<typename TList>
 struct front;
 
+template<>
+struct front<typelist<>>
+{
+    using type = empty_type;
+};
+
 template<typename Head, typename... Tails>
 struct front<typelist<Head, Tails...>>
 {
@@ -94,7 +100,7 @@ struct push_back<typelist<Tails...>, NewElement>
 template<typename TList, typename NewElement>
 using push_back_t = typename push_back<TList, NewElement>::type;
 
-template<typename TList, std::size_t N>
+template<typename TList, std::size_t N, typename = void>
 struct nth_element : nth_element<pop_front_t<TList>, N-1>
 {};
 
@@ -103,7 +109,7 @@ struct nth_element<TList, 0> : front<TList>
 {};
 
 template<std::size_t N>
-struct nth_element<typelist<>, N>
+struct nth_element<typelist<>, N, std::enable_if_t<(N>0)>>
 {
     using type = empty_type;
 };

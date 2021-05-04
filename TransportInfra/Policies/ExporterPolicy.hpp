@@ -3,6 +3,7 @@
 #include "template_typelist.hpp"
 
 #include "TransportDefinitions.h"
+#include "AccessContextHierarchy.hpp"
 #include "Devices/ProxyDevice.hpp"
 
 namespace infra
@@ -33,36 +34,40 @@ struct ExposesDevice<T, std::true_type> : def::has_member_getDevice<T>
 template<template <typename...> typename... Policies>
 struct Exporter<meta::ttl::template_typelist<Policies...>>
 {
-    template<typename Host, typename Derived, typename = void>
+    template<typename Host, typename Endpoint, typename = void>
     class Policy{};
 
-    /*
-    template<typename Host, typename Derived>
-    class Policy<Host, Derived, 
-                 std::enable_if_t<ExposesDevice<Derived>::value>> : public Policies<Host, Derived>...
-    {
-        friend class GenericDeviceAccess;
-        friend class NamedPipeDeviceAccess;
-        friend class SocketDeviceAccess;
+    template<typename Host, typename Endpoint>
+    //class Policy<Host, Endpoint,  std::enable_if_t<ExposesDevice<Endpoint>::value>> : public Policies<Host, Endpoint>...
+    class Policy<Host, Endpoint,  std::enable_if_t<ExposesDevice<Endpoint>::value>>
+        : public AccessContextHierarchy<ProxyDevice<typename Endpoint::Device>, Policies...>
 
-        using Device = typename Derived::Device;
+    {
+        using Device = typename Endpoint::Device;
+        using ProxyDeviceBase = ProxyDevice<Device>;
         using handle_type = typename Device::handle_type;
 
-    protected:
-        void init()
+    public:
+        bool init()
         {
-            Device & endpoint_device = static_cast<Derived&>(*this).getDevice();
-            m_proxy_dev->setBaseReference(endpoint_device);
+            //std::cout << "ExporterPolicy::init() id: " << id << "\n";
+            Device & endpoint_device = (static_cast<Host&>(*this)).getDevice();
+            (static_cast<ProxyDeviceBase&>(*this).setBaseReference(endpoint_device));
+            //m_proxy_dev.setBaseReference(endpoint_device);
+            return true;
         }
 
+    protected:
         handle_type getHandle(){
-            return m_proxy_dev.getHandle();
+            //std::cout << "ExporterPolicy::getHandle() id: " << id << "\n";
+            //return m_proxy_dev.getHandle();
+            static_cast<const ProxyDeviceBase&>(*this).getHandle();
         } 
 
-    private:
-        ProxyDevice<Device> m_proxy_dev;
+    //private:
+        //ProxyDevice<Device> m_proxy_dev;
+        //int id{getRandomNumberInRange(0, 5000)};
     };
-    */
 };
 
 }//infra

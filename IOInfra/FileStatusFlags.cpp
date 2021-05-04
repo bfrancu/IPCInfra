@@ -88,6 +88,7 @@ void FileStatusFlags::settAccessModeFlag(int flags)
 
 int FileStatusFlags::getLatestFlags()
 {
+    //std::cout << "FileStatusFlags::getLatestFlags() desc: " << m_descriptor << "\n";
     return fcntl(m_descriptor, F_GETFL);
 }
 

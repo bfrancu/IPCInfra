@@ -343,19 +343,25 @@ void testReactor()
     using ReactorT= Reactor<HandleT, demux::EpollDemultiplexer<HandleT>>;
     using DevicePoliciesT = meta::ttl::template_typelist<ConnectionPolicy, GenericIOPolicy>;
     using TcpSocketDeviceT = PackHostT<defaults::IPV4TcpSocketDevice, DevicePoliciesT>;
+    using ReadPipeT = PackHostT<defaults::ReadFifoDevice, DevicePoliciesT>;
+    using WritePipeT = PackHostT<defaults::WriteFifoDevice, DevicePoliciesT>;
 
     TcpSocketDeviceT sock_dev;
+    ReadPipeT rd_pipe_dev;
+    WritePipeT wr_pipe_dev;
     ReactorT reactor;
-    DeviceTestEventHandler<TcpSocketDeviceT, ReactorT> ev_handler(sock_dev, reactor);
+    DeviceTestEventHandler<WritePipeT, ReactorT> ev_handler(wr_pipe_dev, reactor);
     ev_handler.init();
     reactor.start();
 
+    std::string fifo_path{"/home/bfrancu/Documents/Work/myfifo2"};
     uint16_t port{55123};
     bool non_blocking{true};
     IPV4NetworkAddress network_addr{IPV4HostAddr::AddressAny(), port};
     IPV4InetSocketAddress sock_addr{network_addr};
     events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_OUT, EHandleEvent::E_HANDLE_EVENT_IN>();
 
+    /*
     if (ev_handler.listenerSubscribe(events))
     {
         std::cout << "testReactor() successfully subscribed to reactor\n";
@@ -364,18 +370,22 @@ void testReactor()
     {
         std::cout << "testReactor() problem subscribing\n";
     }
+    */
 
     //reactor.testHandlers();
     //sleep(5);
     std::cout << "\ntestReactor() Commencing connection \n\n\n\n\n\n";
-    if(!ev_handler.connect(sock_addr, non_blocking))
+    //if(!ev_handler.connect(sock_addr, non_blocking))
+    if(!ev_handler.connect(fifo_path, non_blocking))
     {
-        std::cout << "testReactor() socket device connection failed\n";
+        std::cout << "testReactor() device connection failed\n";
     }
     else
     {
-        std::cout << "testReactor() socket device connected\n";
-        sock_dev.write("hello bye\n");
+        std::cout << "testReactor() device connected\n";
+        ev_handler.init();
+        ev_handler.listenerSubscribe(events);
+        wr_pipe_dev.write("hello bye\n");
     }
 
     //sleep(10);

@@ -54,6 +54,11 @@ class GenericIOPolicy<Host, Device, std::enable_if_t<HasUnixHandleTypeT<Device>:
      using handle_type = typename device_traits<Device>::handle_type;
 
 public:
+    bool init() {
+        std::cout << "GenericIOPolicy::init()\n";
+        return true;
+    }
+
     ssize_t read(std::string & result){ return utils::unx::LinuxIOUtilities::read(this->asDerived().getHandle(), result);}
 
     size_t readLine(std::string & result){ return utils::unx::LinuxIOUtilities::readLine(this->asDerived().getHandle(), result); }

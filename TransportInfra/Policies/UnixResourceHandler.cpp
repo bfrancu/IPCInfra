@@ -1,8 +1,10 @@
 #include <fcntl.h> //open
 #include <errno.h>  // errno
 #include <unistd.h>
+#include <iostream>
 
 #include "UnixResourceHandler.h"
+#include "FileStatusFlags.h"
 
 namespace infra
 {
@@ -11,6 +13,9 @@ UnixResourceHandler::UnixResourceHandler(UnixResourceHandler::handle_type handle
     m_handle{handle}
 {
     m_open = !defaultHandle();
+    io::FileStatusFlags flags{m_handle};
+    std::cout << "UnixResourceHandler::UnixResourceHandler() is open: "
+              << m_open << "; flags valid: " << flags.valid() << "\n";
 }
 
 UnixResourceHandler::UnixResourceHandler(const UnixResourceHandler &other) :

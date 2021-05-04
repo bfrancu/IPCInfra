@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <string>
+#include <iostream>
 
 #include "FileIODefinitions.h"
 #include "LinuxUtils/LinuxIOUtilities.h"
@@ -77,6 +78,7 @@ public:
         if (setFileName(pathname)){
             ret = openFileImpl(access_mode, open_file_flags, 0);
         }
+        std::cout << "FileDevice::open() device opened: " << std::boolalpha << ret << "\n";
         return ret;
     }
 
@@ -125,6 +127,7 @@ protected:
         handle_type local_handle{ResourceHandler::getDefaultValue()};
         std::string full_path = getFullPath();
         if (m_resource_handler.open()){
+            std::cout << "FileDevice::Open() File is already open \n";
             return false;
         }
 
@@ -137,6 +140,7 @@ protected:
 
         if (local_handle != ResourceHandler::getDefaultValue()){
             m_resource_handler.acquire(local_handle);
+            std::cout << "FileDevice::Open() handle: " << local_handle << "\n";
             return true;
         }
         return false;

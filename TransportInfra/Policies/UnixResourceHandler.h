@@ -1,6 +1,7 @@
 #ifndef RESOURCEHANDLER_HPP
 #define RESOURCEHANDLER_HPP
 #include "Traits/handler_traits.hpp"
+#include "default_traits.hpp"
 
 
 namespace infra
@@ -45,7 +46,7 @@ protected:
     bool defaultHandle() const;
 
 private:
-    inline constexpr static handle_type DEFAULT_VALUE{handler_traits<UnixResourceHandler>::defaultValue()};
+    static constexpr handle_type DEFAULT_VALUE{meta::traits::default_value<handle_type>::value};
 
 private:
     handle_type m_handle;

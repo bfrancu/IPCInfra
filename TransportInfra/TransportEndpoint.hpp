@@ -24,8 +24,14 @@ public:
     virtual std::size_t getConnectionState() const = 0;
 };
 
-template<typename T>
-class DynamicTransportEndpointWrapper : public ITransportEndpoint
+class IClientTransportEndpoint : public ITransportEndpoint
+{
+public:
+    virtual void onConnected() = 0;
+};
+
+template<typename T, typename AbstractInterface = ITransportEndpoint>
+class DynamicTransportEndpointWrapper : public AbstractInterface
 {
 public:
     DynamicTransportEndpointWrapper(std::unique_ptr<T> p_endpoint) :
@@ -61,10 +67,22 @@ public:
         return static_cast<std::size_t>(m_pEndpoint->getConnectionState());
     }
 
-private:
+protected:
     std::unique_ptr<T> m_pEndpoint;
 };
 
+template<typename T>
+class ClientDynamicTransportEndpointWrapper : public DynamicTransportEndpointWrapper<T, IClientTransportEndpoint>
+{
+public:
+    ClientDynamicTransportEndpointWrapper(std::unique_ptr<T> p_endpoint) :
+        DynamicTransportEndpointWrapper<T, IClientTransportEndpoint>(std::move(p_endpoint))
+    {}
+
+    void onConnected() override {
+        this->m_pEndpoint->onConnected();
+    }
+};
 /*
  * TODO Move The Listener subscribe/handle event logic to a separate policy
  */
@@ -98,10 +116,6 @@ public:
     {}
 
 public:
-    /* TODO DELEGATE all the callback methods to a separate Policy - depending if it's client or server
-     * TODO Expose the connect method in the ClientPolicy interface to be able to change the connection state
-     *      during and after the operation --> see DeviceTestHandler
-     */
     bool onInputEvent()
     {
         return ClientServerLogicBase::ProcessInputEvent() && DispatcherBase::ProcessInputEvent();
@@ -118,29 +132,25 @@ public:
         return ClientServerLogicBase::ProcessDisconnectionEvent();
     }
 
+    bool onHangupEvent()
+    {
+        return ClientServerLogicBase::ProcessHangupEvent();
+    }
+
     bool onErrorEvent()
     {
         // error handling policy?
         return ClientServerLogicBase::ProcessErrorEvent();
     }
 
-    template<typename U>
-    void setDevice(U && device)
+    void setDevice(AssembledDevice device)
     {
-        m_device = std::forward<U>(device);
+        m_device = std::move(device);
         //EventHandlingPolicy<Listener>::setHandle(GenericDeviceAccess::getHandle(m_device));
         EventHandlingBase::setHandle(GenericDeviceAccess::getHandle(m_device));
     }
 
-    // Policy will be a <template<typename, typename> > Policy
-    /*
-    template<typename Policy>
-    Policy & getDeviceAs()
-    {
-        return static_cast<Policy&>(m_device);
-    }
-    */
-
+public:
     inline Device & getDevice() { return m_device; }
     inline const Device & getDevice() const { return m_device; }
     inline const Observable<std::size_t> & getConnectionState() const { return m_connectionState; }

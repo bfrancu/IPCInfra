@@ -33,8 +33,8 @@ public:
 
         switch(event)
         {
-            case EHandleEvent::E_HANDLE_EVENT_ERR      :
-            case EHandleEvent::E_HANDLE_EVENT_HUP      : optional_process_res = this->asDerived().onErrorEvent(); break;
+            case EHandleEvent::E_HANDLE_EVENT_ERR      : optional_process_res = this->asDerived().onErrorEvent(); break;
+            case EHandleEvent::E_HANDLE_EVENT_HUP      : optional_process_res = this->asDerived().onHangupEvent(); break;
             case EHandleEvent::E_HANDLE_EVENT_IN       : optional_process_res = this->asDerived().onInputEvent(); break;
             case EHandleEvent::E_HANDLE_EVENT_OUT      : optional_process_res = this->asDerived().onWriteAvailable(); break;
             case EHandleEvent::E_HANDLE_EVENT_SHUTDOWN : optional_process_res = this->asDerived().onDisconnection(); break;

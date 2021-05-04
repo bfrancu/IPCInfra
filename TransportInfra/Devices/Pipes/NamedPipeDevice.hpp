@@ -129,7 +129,10 @@ protected:
         std::cout << "NamedPipeDevice<T>::openPipe non blocking: " << std::boolalpha << non_blocking
                   << " path: " << pathname << "\n";
 
-        if (pathname.empty() || m_resource_handler.open()) return false;
+        if (pathname.empty() || m_resource_handler.open()){
+            std::cerr << "NamedPipeDevice<T>::openPipe pathname empty or device already open\n";
+            return false;
+        }
 
         bool new_pipe_created{false};
         if (!LinuxIOUtilities::exists(pathname)){
@@ -157,7 +160,6 @@ protected:
 
         return false;
     }
-
 
     handle_type getHandle() const { return m_resource_handler.getHandle(); }
 

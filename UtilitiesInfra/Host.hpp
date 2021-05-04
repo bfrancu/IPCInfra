@@ -1,5 +1,7 @@
 #ifndef HOST_HPP
 #define HOST_HPP
+#include <iostream>
+
 #include "template_typelist.hpp"
 #include "traits_utils.hpp"
 #include "policies_initializer.hpp"
@@ -31,6 +33,7 @@ public:
     template<typename... Args>
     bool init(Args&&... args)
     {
+        std::cout << "Host::init()\n";
         return initDispatch<ConcretePluginsTList>(*this, std::forward<Args>(args)...);
         return true;
     }

@@ -118,7 +118,7 @@ public:
         }
 
         auto dynamic_completion_cb = [](auto endpoint) { (void) endpoint; std::cout << "dynamic endpoint cb\n"; };
-        auto static_completion_cb = [] (std::unique_ptr<ITransportEndpoint>&&) { std::cout <<"static endpoint cb\n"; };
+        auto static_completion_cb = [] (std::unique_ptr<IClientTransportEndpoint>&&) { std::cout <<"static endpoint cb\n"; };
 
         std::cout << "\nConnecting dynamic device\n";
         ConnectorAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);

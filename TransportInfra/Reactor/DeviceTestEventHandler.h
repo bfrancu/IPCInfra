@@ -12,6 +12,7 @@
 
 namespace infra
 {
+
 template<typename Device, typename Listener>
 class DeviceTestEventHandler : public infra::BaseEventHandlingPolicy<DeviceTestEventHandler<Device, Listener>, Listener>,
                                public infra::ClientCallbackPolicy<DeviceTestEventHandler<Device, Listener>, Device>
@@ -45,7 +46,7 @@ public:
 
         std::cout << "DeviceTestEventHandler::onInputEvent() read from device: " << m_local_buffer << "\n";
         m_local_buffer.clear();
-        return true;
+        return ClientServerLogicBase::ProcessInputEvent();
     }
 
     bool onDisconnection()
@@ -56,19 +57,27 @@ public:
 
     bool onErrorEvent()
     {
-        std::cout << "DeviceTestEventHandler::onErrorEvent() an error or an hangup ocurred\n";
+        std::cout << "DeviceTestEventHandler::onErrorEvent() an error ocurred\n";
         return true;
+    }
+
+    bool onHangupEvent()
+    {
+        return ClientServerLogicBase::ProcessHangupEvent();
     }
 
     bool onWriteAvailable()
     {
-        return ClientServerLogicBase::ProcessOutputEvent();
         /*
         if (m_connectionInProgress){
             m_connectionInProgress.store(false);
             std::cout << "DeviceTestEventHandler::onWriteAvailable() Connection established\n";
         }
         */
+        if (!ClientServerLogicBase::ProcessOutputEvent())
+        {
+            return false;
+        }
 
         std::cout << "DeviceTestEventHandler::onWriteAvailable()\n";
         std::string result{"ping\n"};
