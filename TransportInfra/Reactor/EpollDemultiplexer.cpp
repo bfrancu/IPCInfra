@@ -30,6 +30,7 @@ handleEventToEpollFlag{
    0
 };
 
+/*
 constexpr std::array<std::pair<EHandleEvent, uint32_t>, MAX_EVENTS_NO + EVENTS_LIMITS_NO>
 handleEventToEpollFlag1{
     std::make_pair(EHandleEvent::E_HANDLE_EVENT_NULL, 0),
@@ -41,6 +42,7 @@ handleEventToEpollFlag1{
     std::make_pair(EHandleEvent::E_HANDLE_EVENT_SHUTDOWN, EPOLLRDHUP),
     std::make_pair(EHandleEvent::E_HANDLE_EVENT_LAST, 0)
 };
+*/
 
 static std::unordered_map<EHandleEvent, uint32_t>
 handleEventToEpollFlag2{

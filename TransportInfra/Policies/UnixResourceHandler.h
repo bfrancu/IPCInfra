@@ -36,8 +36,8 @@ public:
 
     static handle_type getDefaultValue() { return DEFAULT_VALUE; }
 
-    void acquire(handle_type handle);    
-    void close();
+    void acquire(handle_type handle);
+    bool close();
 
     bool validHandle() const;
     bool open() const{ return m_open; }

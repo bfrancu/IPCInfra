@@ -36,11 +36,13 @@ FileStatusFlags::FileStatusFlags(file_descriptor_index descriptor) :
 }
 
 void FileStatusFlags::init()
-{   
+{
+    /*
     if (-1 == m_descriptor)
     {
         std::cerr << "FileStatusFlags::init invalid descriptor \n";
     }
+    */
     int flags = getLatestFlags();
     if (-1 != flags)
     {
@@ -52,7 +54,7 @@ void FileStatusFlags::init()
     }
     else
     {
-        std::cerr << "FileStatusFlags::init fcntl(F_GETFL) failed with " << errno << "\n";
+        //std::cerr << "FileStatusFlags::init fcntl(F_GETFL) failed with " << errno << "\n";
     }
 }
 

@@ -68,7 +68,7 @@ protected:
     void setState(io::ESocketState state) { m_state = state; }
     template<typename SA>
     void setWorkingAddress(SA && sock_addr) { m_working_socket_address = std::forward<SA>(sock_addr);}
-    void close(){ m_resource_handler.close(); }
+    bool close(){ return m_resource_handler.close(); }
 
 protected:
     ResourceHandler m_resource_handler;

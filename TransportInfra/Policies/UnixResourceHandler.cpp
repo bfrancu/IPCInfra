@@ -14,8 +14,10 @@ UnixResourceHandler::UnixResourceHandler(UnixResourceHandler::handle_type handle
 {
     m_open = !defaultHandle();
     io::FileStatusFlags flags{m_handle};
+    /*
     std::cout << "UnixResourceHandler::UnixResourceHandler() is open: "
               << m_open << "; flags valid: " << flags.valid() << "\n";
+    */
 }
 
 UnixResourceHandler::UnixResourceHandler(const UnixResourceHandler &other) :
@@ -69,10 +71,13 @@ bool UnixResourceHandler::validHandle() const
     return ::fcntl(m_handle, F_GETFD) != -1 || errno != EBADF;
 }
 
-void UnixResourceHandler::close()
+bool UnixResourceHandler::close()
 {
-    ::close(m_handle);
-    m_open = false;
+    if (int res = ::close(m_handle); -1 != res){
+        m_open = false;
+        return true;
+    }
+    return false;
 }
 
 bool UnixResourceHandler::defaultHandle() const

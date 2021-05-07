@@ -330,6 +330,23 @@ protected:
         m_cleanup_ts = std::chrono::system_clock::now();
     }
 
+    static inline void sortByPriority(events_array & events)
+    {
+        std::stable_sort(std::begin(events), std::end(events), [] (auto lh_event, auto rh_event) {
+                        if (EHandleEvent::E_HANDLE_EVENT_SHUTDOWN == rh_event){ return true; }
+
+                        if (EHandleEvent::E_HANDLE_EVENT_ERR == rh_event && EHandleEvent::E_HANDLE_EVENT_SHUTDOWN != lh_event){ return true; }
+
+                        if (EHandleEvent::E_HANDLE_EVENT_PRIO_IN == rh_event){
+                            for (auto event : {EHandleEvent::E_HANDLE_EVENT_ERR, EHandleEvent::E_HANDLE_EVENT_SHUTDOWN}){
+                                if (lh_event == event) return false;
+                            }
+                            return true;
+                        }
+                        return rh_event < lh_event;
+                  });
+    }
+
     void eventProcessingThread()
     {
         std::cout << "Reactor::eventProcessingThread() thread started\n";
@@ -349,7 +366,8 @@ protected:
             }
 
             SubscriberID sub_id = m_demux_impl.getKeyFor(event_notification.handle);
-            std::cout << "Reactor::eventProcessingThread() new event incoming; subscriber id: " << sub_id  << "\n"; //<< " thread " << std::this_thread::get_id() << "\n";
+            std::cout << "Reactor::eventProcessingThread() new event incoming; subscriber id: " << sub_id
+                      << "; events_mask: " << event_notification.notified_events_mask << "\n";
             auto [sub_info, value_found] = m_subscribers_table.value_for(sub_id);
             if (value_found && !sub_info.expired){
                 if (!setHandlerInProgress(sub_id, true)){
@@ -359,6 +377,7 @@ protected:
                 }
                 std::cout << "Reactor::eventProcessingThread() subscriber id found\n";
                 events_array events = m_demux_impl.getEventsFromMask(event_notification.notified_events_mask);
+                sortByPriority(events);
 
                 for (auto event : events){
                      if (EHandleEvent::E_HANDLE_EVENT_NULL == event) continue;

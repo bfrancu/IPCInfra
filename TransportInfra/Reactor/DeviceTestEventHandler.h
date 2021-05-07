@@ -58,11 +58,12 @@ public:
     bool onErrorEvent()
     {
         std::cout << "DeviceTestEventHandler::onErrorEvent() an error ocurred\n";
-        return true;
+        return ClientServerLogicBase::ProcessErrorEvent();
     }
 
     bool onHangupEvent()
     {
+        std::cout << "DeviceTestHandler::onHangupEvent()\n";
         return ClientServerLogicBase::ProcessHangupEvent();
     }
 
@@ -82,12 +83,14 @@ public:
         std::cout << "DeviceTestEventHandler::onWriteAvailable()\n";
         std::string result{"ping\n"};
         //m_device.write(result, io::ESocketIOFlag::E_MSG_NOSIGNAL);
-        m_device.write("ping\n");
+        if (static_cast<std::size_t>(EConnectionState::E_CONNECTED) == m_connectionState){
+            m_device.write("ping\n");
+        }
         return true;
     }
 
     inline Device & getDevice() { return m_device; }
-    inline std::size_t & getConnectionState() { return m_connectionState; }
+    inline std::size_t getConnectionState() { return m_connectionState; }
 
 protected:
     void setState(EConnectionState state)
@@ -96,7 +99,7 @@ protected:
     }
 
 private:
-    std::size_t m_connectionState;
+    std::size_t m_connectionState{static_cast<std::size_t>(EConnectionState::E_AVAILABLE)};
     Device & m_device;
     std::string m_local_buffer{};
     //std::once_flag m_connectionEstablishedFlag;

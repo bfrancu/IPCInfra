@@ -392,7 +392,10 @@ void testReactor()
     //ev_handler.listenerUnsubscribe();
     //sleep(5);
     //ev_handler.listenerSubscribe(events);
-    for (;;) {}
+    for (;;) {
+        //sleep(10);
+        //wr_pipe_dev.write("ping");
+    }
 
 
     /*

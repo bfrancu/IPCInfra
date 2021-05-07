@@ -176,6 +176,14 @@ public:
                 {
                     std::cout << "EpollDemultiplexer::monitorWaitThread() hangup event received errno: " << errno << "\n";
                 }
+                if (events_list[i].events & EPOLLRDHUP)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() shutdown event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLOUT)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() out event received errno: " << errno << "\n";
+                }
                 m_consumer_queue.push(EventNotification<handle_t>{events_list[i].data.fd, events_list[i].events});
             }
         }
@@ -194,8 +202,8 @@ protected:
         //subscription_event.events |= EPOLLOUT;
         //std::cout << "EpollDemultiplexer::registerImpl() subscription mask after EPOLLOUT: " << subscription_event.events << "\n";
         //subscription_event.events |= (EPOLLIN | EPOLLPRI | EPOLLOUT);
-        //subscription_event.events |= (EPOLLHUP | EPOLLERR);
-        //subscription_event.events |= EPOLLRDHUP;
+        subscription_event.events |= (EPOLLHUP | EPOLLERR);
+        subscription_event.events |= EPOLLRDHUP;
         subscription_event.events |= EPOLLET;
         subscription_event.data.fd = descriptor;
         //bool res = sys_call_noerr_eval(::epoll_ctl, m_epoll_fd, EPOLL_CTL_ADD, descriptor, &subscription_event);

@@ -1,6 +1,7 @@
 #ifndef CONNECTOR_HPP
 #define CONNECTOR_HPP
 #include <functional>
+#include <type_traits>
 #include <unordered_map>
 #include <memory>
 
@@ -29,8 +30,8 @@ namespace infra
     template<typename Demultiplexer, typename Enable = void>
     class Connector
     {
-        
-        template<std::size_t> struct holder {};
+        struct fifo_device_tag{};
+        struct non_fifo_device_tag{};
 
      public:
             Connector(Demultiplexer & eventDemultiplexer) :
@@ -63,8 +64,8 @@ namespace infra
             std::cout << "Connector::setup() connecting device; address: " << addr << "\n";
             using resource_handler_t = typename TransportTraits::resource_handler_t;
             using device_policies_t = typename TransportTraits::device_policies_t;
+            using device_t = typename TransportTraits::device_t;
             using transport_endpoint_t = typename TransportTraits::transport_endpoint_t;
-            using ConcreteWrapper = ClientDynamicTransportEndpointWrapper<transport_endpoint_t>;
 
             std::cout <<"Connector::setup() creating new endpoint\n";
 
@@ -78,7 +79,12 @@ namespace infra
             std::cout << "Connector::setup() Device was set\n";
 
             // TODO use tag dispatch and isFifoDevice trait to connect differently for fifos
-            SubscriberID id = connect(addr, p_endpoint);
+            return connect(cb, addr, std::move(p_endpoint), traits::select_if_t<IsNamedPipeDeviceT<device_t>,
+                                                                                fifo_device_tag, 
+                                                                                non_fifo_device_tag>{});
+            
+            /*
+            SubscriberID id = connect2(addr, p_endpoint);
             if (NULL_SUBSCRIBER_ID != id) {
                 auto p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, IClientTransportEndpoint>(
                     std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
@@ -88,6 +94,7 @@ namespace infra
                 return true;
             }
             else std::cout << "Connector::setup() failure subscribing to demultiplexer.\n";
+            */
 
             /*
             device_host_t & device = p_endpoint->getDevice();
@@ -115,9 +122,9 @@ namespace infra
                 }
                 std::cout << "Connector::setup() device connection done with failure\n";
             }
-*/
 
             return false;
+            */
         }
 
         EHandleEventResult handleEvent(SubscriberID id, EHandleEvent event)
@@ -139,9 +146,64 @@ namespace infra
         }
 
      protected:
+        template<typename Endpoint>
+        bool subscribe(const CompletionCallback & cb, std::unique_ptr<Endpoint> p_endpoint)
+        {
+            using ConcreteWrapper = ClientDynamicTransportEndpointWrapper<Endpoint>;
+            events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_OUT>();
+            auto handle = GenericDeviceAccess::getHandle(p_endpoint->getDevice());
+            SubscriberID id = m_demultiplexer.subscribe(subscribed_events, handle, *this);
+
+            if (NULL_SUBSCRIBER_ID != id)
+            {
+                auto p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, IClientTransportEndpoint>(
+                    std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
+
+                m_active_subscriptions[id] = ConnectorClientSubscriber{std::move(p_endpoint_wrapper), cb};
+                return true;
+            }
+
+            std::cout << "Connector::subscribe() failure subscribing to demultiplexer.\n";
+            return false;
+        }
+
+        template<typename Endpoint, typename DeviceAddress>
+        bool connect(const CompletionCallback & cb, const DeviceAddress & addr, std::unique_ptr<Endpoint> p_endpoint, non_fifo_device_tag)
+        {
+            bool non_blocking{true};
+            if (p_endpoint->connect(addr, non_blocking))
+            {
+                std::cout << "Connector::connect(non_fifo_device_tag) device connection done with success\n";
+                return subscribe(cb, std::move(p_endpoint));
+            }
+            return false;
+        }
+
+
+        template<typename Endpoint, typename DeviceAddress>
+        bool connect(const CompletionCallback & cb, const DeviceAddress & addr, std::unique_ptr<Endpoint> p_endpoint, fifo_device_tag)
+        {
+            using ConcreteWrapper = ClientDynamicTransportEndpointWrapper<Endpoint>;
+            bool non_blocking{true};
+            bool ret{false};
+            std::unique_ptr<IClientTransportEndpoint> p_endpoint_wrapper{nullptr};
+
+            if (p_endpoint->connect(addr, non_blocking))
+            {
+                std::cout << "Connector::connect(fifo_device_tag) device connection done with success\n";
+                p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, IClientTransportEndpoint>(
+                                     std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
+                
+                postConnectionAction(p_endpoint_wrapper);
+                ret = true;
+            }
+
+            cb(std::move(p_endpoint_wrapper));
+            return ret;
+        }
          
         template<typename Endpoint, typename DeviceAddress>
-        SubscriberID connect(const DeviceAddress & addr, std::unique_ptr<Endpoint> & p_endpoint)
+        SubscriberID connect2(const DeviceAddress & addr, std::unique_ptr<Endpoint> & p_endpoint, std::false_type)
         {
             using device_host_t = typename Endpoint::Device;
 
@@ -180,9 +242,7 @@ namespace infra
         {
             m_demultiplexer.unsubscribe(client_it->first);
 
-            client_it->second.p_wrapped_endpoint->onConnected();
-            events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
-            client_it->second.p_wrapped_endpoint->listenerSubscribe(events);
+            postConnectionAction(client_it->second.p_wrapped_endpoint);
             completeClientService(client_it);
         }
 
@@ -198,6 +258,13 @@ namespace infra
         }
 
      private:
+        void postConnectionAction(std::unique_ptr<IClientTransportEndpoint> & p_endpoint_wrapper)
+        {
+            p_endpoint_wrapper->onConnected();
+            events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
+            p_endpoint_wrapper->listenerSubscribe(events);
+        }
+
         void completeClientService(SubscriberIter client_it)
         {
             auto & client_sub = client_it->second;

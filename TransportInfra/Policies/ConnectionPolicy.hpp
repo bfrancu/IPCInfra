@@ -81,10 +81,14 @@ public:
         return ret;
     }
 
-    void disconnect(){
-        if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return;
-        this->asDerived().close();
-        this->asDerived().setState(io::ESocketState::E_STATE_DISCONNECTED);
+    bool disconnect(){
+        std::cout << "ConnectionPolicy::disconnect()\n";
+        if (io::ESocketState::E_STATE_CONNECTED != this->asDerived().getState()) return false;
+        if (this->asDerived().close()){
+            this->asDerived().setState(io::ESocketState::E_STATE_DISCONNECTED);
+            return true;
+        }
+        return false;
     }
 
     bool shutdown(io::EShutdownHow how){
@@ -112,8 +116,9 @@ public:
         return this->asDerived().open(addr, non_blocking);
     }
 
-    void disconnect() {
-        this->asDerived().close();
+    bool disconnect() {
+        std::cout << "ConnectionPolicy::disconnect()\n";
+        return this->asDerived().close();
     }
 
     bool shutdown(io::EShutdownHow how) {

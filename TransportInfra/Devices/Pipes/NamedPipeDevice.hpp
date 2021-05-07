@@ -100,7 +100,7 @@ public:
     }
 
     std::string pathname() const { return m_fifo_pathname; }
-    void close() { m_resource_handler.close(); } 
+    bool close() { return m_resource_handler.close(); }
 
 protected:
     NamedPipeDevice() {}

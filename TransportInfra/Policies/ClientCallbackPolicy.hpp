@@ -47,11 +47,14 @@ public:
         return result;
     }
 
-    void disconnect()
+    bool disconnect()
     {
-        this->asDerived().getDevice().disconnect();
-        this->asDerived().setState(EConnectionState::E_DISCONNECTING);
-        m_connected = false;
+        if (this->asDerived().getDevice().disconnect()){
+            this->asDerived().setState(EConnectionState::E_DISCONNECTED);
+            m_connected = false;
+            return true;
+        }
+        return false;
     }
 
     void onConnected()
@@ -73,10 +76,18 @@ protected:
 
     bool ProcessOutputEvent()
     {
-        if (!m_connected){
+        std::cout << "ClientCallbackPolicy::ProcessOutputEvent()\n";
+        if (!m_connected && this->asDerived().getConnectionState() == static_cast<std::size_t>(EConnectionState::E_CONNECTING)){
             onConnected();
             std::cout << "ClientCallbackPolicy::ProcessOutputEvent(): connection established\n";
         }
+        /*
+        else
+        {
+            std::cout << "ClientCallbackPolicy::ProcessOutputEvent() not connected yet. connected: " << m_connected
+                      << "; connection state: " << this->asDerived().getConnectionState() << "\n";
+        }
+        */
         return true;
     }
 
@@ -88,7 +99,10 @@ protected:
 
     bool ProcessErrorEvent() 
     {
-        disconnect();
+        if (m_connected){
+            this->asDerived().setState(EConnectionState::E_DISCONNECTING);
+            return disconnect();
+        }
         return true;
     }
 
