@@ -88,13 +88,14 @@ struct default_client_traits
 template<typename client_traits = default_client_traits>
 class ConnectorClient
 {
+    static constexpr std::size_t static_device_tag{read_fifo_tag};
     using ResourceHandler = typename client_traits::ResourceHandler;
     //using TransportPolicies = typename client_traits::TransportPolicies;
     using DevicePolicies = typename client_traits::DevicePolicies;
     using Listener = typename client_traits::Listener;
     using ConcreteDeviceTypes = typename generate_device_typelist<ResourceHandler, DevicePolicies>::type;
     using EndpointTypes = typename generate_endpoint_typelist<client_traits>::type;
-    using StaticTransportEndpoint = typename transport_traits<unx_strm_tag, client_traits>::transport_endpoint_t;
+    using StaticTransportEndpoint = typename transport_traits<static_device_tag, client_traits>::transport_endpoint_t;
 
 public:
     ConnectorClient(Connector<Listener> & connector, std::string_view file_name):
@@ -114,16 +115,21 @@ public:
         }
         else
         {
-            std::cout << "Static device type is: " << read_fifo_tag << "; dynamic device type is: " << m_device_type << "\n";
+            std::cout << "Static device type is: " << static_device_tag << "; dynamic device type is: " << m_device_type << "\n";
         }
 
         auto dynamic_completion_cb = [](auto endpoint) { (void) endpoint; std::cout << "dynamic endpoint cb\n"; };
-        auto static_completion_cb = [] (std::unique_ptr<IClientTransportEndpoint>&&) { std::cout <<"static endpoint cb\n"; };
+        auto static_completion_cb = [this] (std::unique_ptr<IClientTransportEndpoint>&& p_endpoint) { std::cout <<"static endpoint cb\n";
+            m_p_static_transport_endpoint.reset(reinterpret_cast<StaticTransportEndpoint*>(p_endpoint->releaseInternalEndpoint()));
+            m_p_static_transport_endpoint->registerInputCallback([](std::string_view content){
+                std::cout << "ConnectorClient::inputCallback received: " << content << "\n";
+            });
+        };
 
-        std::cout << "\nConnecting dynamic device\n";
-        ConnectorAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);
+        //std::cout << "\nConnecting dynamic device\n";
+        //ConnectorAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);
         std::cout << "\nConnecting static device\n";
-        ConnectorAdapter::connect<client_traits, read_fifo_tag>(book, section, m_connector, static_completion_cb);
+        ConnectorAdapter::connect<client_traits, static_device_tag>(book, section, m_connector, static_completion_cb);
     }
 
     inline int getDeviceType() const { return m_device_type; }
@@ -134,7 +140,7 @@ private:
 
     Connector<Listener> & m_connector;
     std::unique_ptr<StaticTransportEndpoint> m_p_static_transport_endpoint;
-    std::unique_ptr<DynamicTransportEndpointAdapter<EndpointTypes>> m_p_dynamic_transport_endpoint;
+    std::unique_ptr<ClientDynamicTransportEndpointAdapter<EndpointTypes>> m_p_dynamic_transport_endpoint;
 };
 
 void toLower(std::string & value);

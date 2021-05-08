@@ -25,6 +25,12 @@ class DefinitionsContainer
     template<typename> friend class DynamicTransportEndpointAdapter;
 };
 
+class ClientDefinitionsContainer
+{
+    DEFINE_DISPATCH_TO_MEMBER(onConnected);
+    template<typename> friend class ClientDynamicTransportEndpointAdapter;
+};
+
 template<typename EndpointTList>
 class DynamicTransportEndpointAdapter
 {
@@ -44,7 +50,7 @@ public:
 
     virtual ~DynamicTransportEndpointAdapter() = default;
 
-    bool init(std::unique_ptr<ITransportEndpoint> && p_endpoint, std::size_t device_tag)
+    virtual bool init(std::unique_ptr<ITransportEndpoint> p_endpoint, std::size_t device_tag)
     {
         m_pEndpoint = std::move(p_endpoint);
         m_device_tag = device_tag;
@@ -53,7 +59,7 @@ public:
 
     // dispatcher callbacks
     template<typename InputAvailableCB>
-    bool registerInputCallback(InputAvailableCB && cb) {
+    bool registerInputCallback(InputAvailableCB cb) {
         if (!m_pEndpoint) return false;
         using return_t = typename Def::registerInputCallback_dispatcher<EndpointTList>::return_registerInputCallback_variant;
         auto wrapper = meta::dispatch::wrap(m_pEndpoint->getInternalEndpoint());
@@ -121,6 +127,7 @@ public:
     }
 
     inline bool listenerUnsubscribe() {
+        std::cout << "DynamicTransportEndpointAdapter::listenrUnsubscribe()\n";
         if (!m_pEndpoint) return false;
         return m_pEndpoint->listenerUnsubscribe();
     }
@@ -134,9 +141,51 @@ public:
     inline std::size_t getDeviceTag() const { return m_device_tag; }
     inline std::size_t getConnectionState() const { return m_pEndpoint->getConnectionState(); }
 
+protected:
+    inline std::size_t deviceTag() const { return m_device_tag; }
+    inline std::unique_ptr<ITransportEndpoint> & endpoint() { return m_pEndpoint; }
+    inline const std::unique_ptr<ITransportEndpoint> & endpoint() const { return m_pEndpoint; }
+
 private:
     std::size_t m_device_tag;
     std::unique_ptr<ITransportEndpoint> m_pEndpoint;
+};
+
+template<typename EndpointTList>
+class ClientDynamicTransportEndpointAdapter : public DynamicTransportEndpointAdapter<EndpointTList>
+{
+    using Base = DynamicTransportEndpointAdapter<EndpointTList>;
+    using Def = ClientDefinitionsContainer;
+public:
+    ClientDynamicTransportEndpointAdapter() = default;
+
+    ClientDynamicTransportEndpointAdapter(std::unique_ptr<IClientTransportEndpoint> p_endpoint, std::size_t device_tag) :
+        Base{std::move(p_endpoint), device_tag}
+    {}
+
+public:
+    bool init(std::unique_ptr<ITransportEndpoint> p_endpoint, std::size_t device_tag) override
+    {
+        if (!p_endpoint){
+            return false;
+        }
+
+        if (IClientTransportEndpoint *p_clientEndpoint = dynamic_cast<IClientTransportEndpoint*>(p_endpoint.get());
+           nullptr == p_clientEndpoint){
+            return false;
+        }
+        return Base::init(std::move(p_endpoint), device_tag);
+    }
+
+    void onConnected()
+    {
+        if (!Base::endpoint()) return;
+        std::unique_ptr<IClientTransportEndpoint> & p_endpoint = static_cast<std::unique_ptr<IClientTransportEndpoint>&>(Base::endpoint());
+        auto wrapper = meta::dispatch::wrap(Base::endpoint()->getInternalEndpoint());
+
+        Def::onConnected_dispatcher<EndpointTList>::call(Base::deviceTag(), wrapper);
+    }
+
 };
 }//infra
 #endif

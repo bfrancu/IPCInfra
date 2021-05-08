@@ -56,6 +56,7 @@ public:
     }
 
     bool listenerUnsubscribe() override {
+        //std::cout << "DynamicTransportEndpointWrapper::listenerUnsubscribe()\n";
         return m_pEndpoint->listenerUnsubscribe();
     }
     
@@ -105,6 +106,7 @@ class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<Assembled
 
     //friend class ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>;
     friend ClientServerLogicBase;
+    friend EventHandlingBase;
 
 public:
     using Device = AssembledDevice;
@@ -161,6 +163,8 @@ protected:
     {
         m_connectionState = static_cast<std::size_t>(state);
     }
+
+    inline auto getHandle() const { return GenericDeviceAccess::getHandle(m_device); }
 
 private:
     Observable<std::size_t> m_connectionState;

@@ -166,6 +166,7 @@ bool LinuxIOUtilities::exists(const std::string &pathname)
 
 bool LinuxIOUtilities::existingDirectory(const std::string &directory)
 {
+    std::cout << "LinuxIOUtilities::existingDirectory ___" << directory << "___\n";
     io::FileInfo info{directory};
     return io::EFileType::E_DIRECTORY == info.type() && exists(directory);
 }

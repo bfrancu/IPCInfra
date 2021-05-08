@@ -60,7 +60,9 @@ public:
             return false;
         }
 
-        if (auto id = m_listener.subscribe(events, m_optional_handle_ref.value(), *this);
+        auto handle = this->asDerived().getHandle();
+
+        if (auto id = m_listener.subscribe(events, handle, *this);
             Listener::NULL_SUBSCRIBER_ID != id)
         {
             m_listener_sub_id = id;
@@ -73,6 +75,7 @@ public:
 
     bool listenerUnsubscribe()
     {
+        std::cout << "BaseventHandlingPolicy::listenerUnsubscribe()\n";
         if (m_listener.unsubscribe(m_listener_sub_id))
         {
             m_listener_sub_id = Listener::NULL_SUBSCRIBER_ID;

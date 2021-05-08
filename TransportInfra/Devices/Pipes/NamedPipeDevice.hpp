@@ -129,6 +129,7 @@ protected:
         std::cout << "NamedPipeDevice<T>::openPipe non blocking: " << std::boolalpha << non_blocking
                   << " path: " << pathname << "\n";
 
+        std::cout << "NamedPipeDevice<T>::openPipe pathname: " << pathname << "; handler open: " << m_resource_handler.open() << "\n";
         if (pathname.empty() || m_resource_handler.open()){
             std::cerr << "NamedPipeDevice<T>::openPipe pathname empty or device already open\n";
             return false;
@@ -137,7 +138,10 @@ protected:
         bool new_pipe_created{false};
         if (!LinuxIOUtilities::exists(pathname)){
             new_pipe_created = LinuxIOUtilities::makefifo(pathname);
-            if (!new_pipe_created) return false;
+            if (!new_pipe_created){
+                std::cerr << "NamedPipeDevice<T>::openPipe() mkfifo failed\n";
+                return false;
+            }
         }
 
         int open_flags = io::getAccessModeFlag(access_mode);

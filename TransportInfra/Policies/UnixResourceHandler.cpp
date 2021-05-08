@@ -71,6 +71,12 @@ bool UnixResourceHandler::validHandle() const
     return ::fcntl(m_handle, F_GETFD) != -1 || errno != EBADF;
 }
 
+bool UnixResourceHandler::open() const
+{
+    errno = 0;
+    return (-1 != ::fcntl(m_handle, F_GETFD) || EBADF != errno);
+}
+
 bool UnixResourceHandler::close()
 {
     if (int res = ::close(m_handle); -1 != res){

@@ -40,7 +40,7 @@ public:
     bool close();
 
     bool validHandle() const;
-    bool open() const{ return m_open; }
+    bool open() const;
 
 protected:
     bool defaultHandle() const;

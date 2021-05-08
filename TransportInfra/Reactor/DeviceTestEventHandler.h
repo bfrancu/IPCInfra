@@ -23,6 +23,7 @@ class DeviceTestEventHandler : public infra::BaseEventHandlingPolicy<DeviceTestE
     using address_t = typename Device::address_type;
     //using traits_t = traits::select_traits<Device>;
     friend ClientServerLogicBase;
+    friend EventHandlingBase;
 
 public:
     DeviceTestEventHandler(Device & device, Listener & listener) :
@@ -97,6 +98,8 @@ protected:
     {
         m_connectionState = static_cast<std::size_t>(state);
     }
+
+    inline auto getHandle() const { return GenericDeviceAccess::getHandle(m_device); }
 
 private:
     std::size_t m_connectionState{static_cast<std::size_t>(EConnectionState::E_AVAILABLE)};

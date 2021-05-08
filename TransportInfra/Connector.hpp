@@ -39,7 +39,8 @@ namespace infra
         {}
 
         struct ConnectorClientSubscriber;
-        using CompletionCallback = void(*)(std::unique_ptr<IClientTransportEndpoint>&&);
+        //using CompletionCallback = void(*)(std::unique_ptr<IClientTransportEndpoint>&&);
+        using CompletionCallback = std::function<void(std::unique_ptr<IClientTransportEndpoint>&&)>;
         using SubscriberID = typename Demultiplexer::SubscriberID;
         using SubscribersMap = std::unordered_map<SubscriberID, ConnectorClientSubscriber>;
         using SubscriberIter = typename SubscribersMap::iterator;
@@ -240,6 +241,7 @@ namespace infra
 
         void handleConnectionSuccess(SubscriberIter client_it)
         {
+            std::cout << "Connector::handleConnectionSuccess\n";
             m_demultiplexer.unsubscribe(client_it->first);
 
             postConnectionAction(client_it->second.p_wrapped_endpoint);
@@ -248,6 +250,7 @@ namespace infra
 
         void handleConnectionFailure(SubscriberIter client_it, EHandleEvent event)
         {
+            std::cout << "Connector::handleConnectionFailure\n";
             if (enum_flag(event) & (enum_flag(EHandleEvent::E_HANDLE_EVENT_ERR) |
                                     enum_flag(EHandleEvent::E_HANDLE_EVENT_HUP)))
             {

@@ -350,10 +350,10 @@ protected:
     void eventProcessingThread()
     {
         std::cout << "Reactor::eventProcessingThread() thread started\n";
-        signal(SIGQUIT, sigHandler);
-        signal(SIGINT, sigHandler);
-        signal(SIGKILL, sigHandler);
-        signal(SIGSEGV, sigHandler);
+        //signal(SIGQUIT, sigHandler);
+        //signal(SIGINT, sigHandler);
+        //signal(SIGKILL, sigHandler);
+        //signal(SIGSEGV, sigHandler);
 
         for (;;)
         {

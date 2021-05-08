@@ -86,8 +86,10 @@ void testConnectorClient()
     std::string config_file{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
     std::string config_section{"CONNECTION_DETAILS"};
 
+    reactor.start();
     ConnectorClient<default_client_traits> client{connector, config_file};
     client.init(config_section);
+    for (;;) {}
 }
 
 DEFINE_HAS_MEMBER(init);

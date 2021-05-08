@@ -61,6 +61,7 @@ void testEnumFlags();
 void testTransportMain();
 void testReactor();
 void testSharedLookupTable();
+void testFileInfo();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -127,9 +128,10 @@ int main()
 {
     using namespace infra;
     //testSharedLookupTable();
-    testReactor();
+    //testReactor();
     //infra::meta::dispatch::dispatch_main();
-    //transport::testConnectorClient();
+    transport::testConnectorClient();
+    //testFileInfo();
     //testSocketDevices();
     //testTransportMain();
     //testEnumFlags();
@@ -350,7 +352,7 @@ void testReactor()
     ReadPipeT rd_pipe_dev;
     WritePipeT wr_pipe_dev;
     ReactorT reactor;
-    DeviceTestEventHandler<WritePipeT, ReactorT> ev_handler(wr_pipe_dev, reactor);
+    DeviceTestEventHandler<ReadPipeT, ReactorT> ev_handler(rd_pipe_dev, reactor);
     ev_handler.init();
     reactor.start();
 
@@ -385,7 +387,7 @@ void testReactor()
         std::cout << "testReactor() device connected\n";
         ev_handler.init();
         ev_handler.listenerSubscribe(events);
-        wr_pipe_dev.write("hello bye\n");
+        //wr_pipe_dev.write("hello bye\n");
     }
 
     //sleep(10);
@@ -554,6 +556,14 @@ void testNamedPipes()
 //    WritingNamedPipeDevice<UnixResourceHandler> writing_pipe(fifo_path);
 //    std::cout << std::boolalpha << writing_pipe.open(true)Impl
 //              << "\n";
+}
+
+void testFileInfo()
+{
+    using namespace infra;
+    std::string dir_path{"/home/bfrancu/Documents/Work"};
+    bool res = utils::unx::LinuxIOUtilities::existingDirectory(dir_path);
+    std::cout << "Existing directory: " << dir_path << ": " << res << "\n";
 }
 
 void errorPrinter(const infra::io::EFileIOError & err){
