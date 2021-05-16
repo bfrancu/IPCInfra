@@ -161,19 +161,20 @@ private:                                                                        
     DEFINE_HAS_MEMBER(Member);                                                                                     \
     DEFINE_RETURN_TYPES_FROM_MEMBER(Member);                                                                       \
                                                                                                                    \
-    using return_##Member##_variant = infra::meta::tl::to_variant_t<infra::meta::tl::push_front_t<                 \
+    using return_##Member##_variant_internal = infra::meta::tl::to_variant_t<infra::meta::tl::push_front_t<        \
                                                    infra::meta::tl::remove_duplicates_t<                           \
                                                    infra::meta::tl::erase_t<return_types_from_##Member##_t<        \
                                                    infra::meta::tl::filter_t<                                      \
                                                    has_member_##Member, TList, true>>, void>>, std::monostate>>;   \
                                                                                                                    \
+private:                                                                                                           \
     struct select_##Member##_overload                                                                              \
     {                                                                                                              \
         template<typename T, typename... Args,                                                                     \
                  typename = decltype(std::declval<T>().Member(std::declval<Args&&>()...)) >                        \
-        static void call(T && object, return_##Member##_variant & result, Args&&... args){                         \
+        static void call(T && object, return_##Member##_variant_internal & result, Args&&... args){                \
             using return_type = std::decay_t<decltype(std::declval<T>().Member(std::declval<Args&&>()...))>;       \
-            if constexpr (infra::meta::tl::contains_v<return_##Member##_variant, return_type>) {                   \
+            if constexpr (infra::meta::tl::contains_v<return_##Member##_variant_internal, return_type>) {          \
                  result = std::forward<T>(object).Member(std::forward<Args>(args)...);                             \
             }                                                                                                      \
             else {                                                                                                 \
@@ -192,6 +193,8 @@ private:                                                                        
     };                                                                                                             \
                                                                                                                    \
 public:                                                                                                            \
+    using return_##Member##_variant = return_##Member##_variant_internal;                                          \
+                                                                                                                   \
     template<typename... Args>                                                                                     \
     static return_##Member##_variant call(std::size_t tag, Args&&... args)                                         \
     {                                                                                                              \

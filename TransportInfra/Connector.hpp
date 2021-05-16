@@ -68,64 +68,13 @@ namespace infra
             using device_t = typename TransportTraits::device_t;
             using transport_endpoint_t = typename TransportTraits::transport_endpoint_t;
 
-            std::cout <<"Connector::setup() creating new endpoint\n";
-
             auto p_endpoint = std::make_unique<transport_endpoint_t>(m_demultiplexer);
-
-            std::cout <<"Connector::setup() setting new device in the endpoint\n";
-
             p_endpoint->setDevice(DeviceFactory<TransportTraits::device_tag>::template 
                                   createDevice<resource_handler_t, device_policies_t>(std::forward<DeviceConstructorArgs>(args)...));
 
-            std::cout << "Connector::setup() Device was set\n";
-
-            // TODO use tag dispatch and isFifoDevice trait to connect differently for fifos
             return connect(cb, addr, std::move(p_endpoint), traits::select_if_t<IsNamedPipeDeviceT<device_t>,
                                                                                 fifo_device_tag, 
                                                                                 non_fifo_device_tag>{});
-            
-            /*
-            SubscriberID id = connect2(addr, p_endpoint);
-            if (NULL_SUBSCRIBER_ID != id) {
-                auto p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, IClientTransportEndpoint>(
-                    std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
-
-                m_active_subscriptions[id] = ConnectorClientSubscriber{std::move(p_endpoint_wrapper), cb};
-                std::cout << "Connector::setup() device connection done with success\n";
-                return true;
-            }
-            else std::cout << "Connector::setup() failure subscribing to demultiplexer.\n";
-            */
-
-            /*
-            device_host_t & device = p_endpoint->getDevice();
-            bool non_blocking{true};
-
-            handle_t handle = GenericDeviceAccess::getHandle(device);
-            events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_OUT>();
-
-            if (SubscriberID id = m_demultiplexer.subscribe(subscribed_events, handle, *this);
-                NULL_SUBSCRIBER_ID != id){
-
-                std::cout << "Connector::setup() subscribed to demultiplexer.\n";
-                if (p_endpoint->connect(addr, non_blocking)){
-
-                    auto p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, IClientTransportEndpoint>(
-                                              std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
-
-                    m_active_subscriptions[id] = ConnectorClientSubscriber{std::move(p_endpoint_wrapper), cb};
-                    return true;
-                    std::cout << "Connector::setup() device connection done with success\n";
-                }
-                else
-                {
-                    // should unsubscribe from demultiplexer in case of connection failure
-                }
-                std::cout << "Connector::setup() device connection done with failure\n";
-            }
-
-            return false;
-            */
         }
 
         EHandleEventResult handleEvent(SubscriberID id, EHandleEvent event)
@@ -201,42 +150,6 @@ namespace infra
 
             cb(std::move(p_endpoint_wrapper));
             return ret;
-        }
-         
-        template<typename Endpoint, typename DeviceAddress>
-        SubscriberID connect2(const DeviceAddress & addr, std::unique_ptr<Endpoint> & p_endpoint, std::false_type)
-        {
-            using device_host_t = typename Endpoint::Device;
-
-            bool non_blocking{true};
-            device_host_t & device = p_endpoint->getDevice();
-            auto handle = GenericDeviceAccess::getHandle(device);
-            events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_OUT>();
-
-            if (meta::traits::default_value<std::decay_t<decltype(handle)>>::value == handle)
-            {
-                if (p_endpoint->connect(addr, non_blocking))
-                {
-                    auto handle = GenericDeviceAccess::getHandle(device);
-                    std::cout << "Connector::connectAndDemuxRegister() connection ongoing handle: " << handle << "\n";
-                    return m_demultiplexer.subscribe(subscribed_events, handle, *this);
-                }
-                else
-                {
-                    std::cout << "Connector::connectAndDemuxRegister() failue to connect\n";
-                }
-            }
-            else if (SubscriberID id = m_demultiplexer.subscribe(subscribed_events, handle, *this); NULL_SUBSCRIBER_ID != id){
-                if (p_endpoint->connect(addr, non_blocking)){
-                    std::cout << "Connector::connectAndDemuxRegister() connection ongoing handle: " << handle << "\n";
-                    return id;
-                }
-                else
-                {
-                    std::cout << "Connector::connectAndDemuxRegister() failue to connect\n";
-                }
-            }
-            return NULL_SUBSCRIBER_ID;
         }
 
         void handleConnectionSuccess(SubscriberIter client_it)

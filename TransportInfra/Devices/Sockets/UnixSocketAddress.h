@@ -32,6 +32,8 @@ struct UnixAddress
         os << "UnixAddress: pathame = " << addr.pathname;
         return os;
     }
+
+    void setPathname(std::string_view path);
 };
 
 class UnixSocketAddress
@@ -51,8 +53,11 @@ public:
         return m_address < other.m_address;
     }
 
+    bool fromString(std::string_view addr);
     bool setAddress(UnixAddress addr);
     void setAddress(const sockaddr &sock_addr);
+
+    std::string toString() const;
     void getAddress(address_type & out_addr) const;
     void getAddress(sockaddr & out_addr) const;
     inline bool empty() const { return m_address.pathname.empty(); }
@@ -68,6 +73,7 @@ public:
         os << "UnixSocketAddress: address = " << addr.m_address;
         return os;
     }
+
 
 private:
     UnixAddress m_address;

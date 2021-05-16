@@ -1,6 +1,7 @@
 #ifndef DEVICE_ADDRESS_FACTORY_H
 #define DEVICE_ADDRESS_FACTORY_H
 #include "DeviceDefinitions.h"
+#include "TransportDefinitions.h"
 #include "../Configuration/ConfigurationBook.h"
 #include "Devices/Sockets/UnixSocketAddress.h"
 #include "Devices/Pipes/NamedPipeAddress.h"
@@ -63,6 +64,27 @@ namespace infra
                tag == static_cast<std::size_t>(EDeviceType::E_WRITING_FIFO_DEVICE);
     }
 
+    template<typename T, typename = void>
+    struct IsAddressFactory : std::false_type
+    {};
+
+    template<typename T>
+    struct IsAddressFactory<T, std::void_t<decltype(T::createAddress(std::declval<const config::ConfigurationBook &>(), std::declval<std::string_view>()))>> : std::true_type
+    {};
+
+    template<typename Derived, typename DeviceAddress, typename = void>
+    class StringAddressFactory
+    {
+    public:
+        static std::string createAddressStr(const config::ConfigurationBook & book, std::string_view section){
+            if constexpr (def::has_member_toString<DeviceAddress>::value){
+                DeviceAddress addr = Derived::createAddress(book, section);
+                return addr.toString();
+            }
+            else return {};
+        }
+    };
+
     template<std::size_t tag, typename Enable = void>
     class DeviceAddressFactory
     {};
@@ -74,7 +96,8 @@ namespace infra
 
 
     template<std::size_t tag>
-    class DeviceAddressFactory<tag, std::enable_if_t<isIPV4SocketDevice<tag>()>> : protected InetSocketAddressFactoryBase
+    class DeviceAddressFactory<tag, std::enable_if_t<isIPV4SocketDevice<tag>()>> : protected InetSocketAddressFactoryBase,
+                                                                                   public StringAddressFactory<DeviceAddressFactory<tag>, IPV4InetSocketAddress>
     {
         using Base = InetSocketAddressFactoryBase;
    public:
@@ -85,8 +108,12 @@ namespace infra
         }
     };
 
+    static_assert (!IsAddressFactory<IPV4NetworkAddress>::value);
+    static_assert(IsAddressFactory<DeviceAddressFactory<ipv4_dgram_tag>>::value);
+
     template<std::size_t tag>
-    class DeviceAddressFactory<tag, std::enable_if_t<isIPV6SocketDevice<tag>()>> : protected InetSocketAddressFactoryBase
+    class DeviceAddressFactory<tag, std::enable_if_t<isIPV6SocketDevice<tag>()>> : protected InetSocketAddressFactoryBase,
+                                                                                   public StringAddressFactory<DeviceAddressFactory<tag>, IPV6InetSocketAddress>
     {
         using Base = InetSocketAddressFactoryBase;
    public:
@@ -99,7 +126,7 @@ namespace infra
     };
 
     template<std::size_t tag>
-    class DeviceAddressFactory<tag, std::enable_if_t<isUnixSocketDevice<tag>()>>
+    class DeviceAddressFactory<tag, std::enable_if_t<isUnixSocketDevice<tag>()>> : public StringAddressFactory<DeviceAddressFactory<tag>, unx::UnixSocketAddress>
     {
        static inline const char * const PATHNAME_PARAM{"PATHNAME"};
    public:
@@ -116,7 +143,7 @@ namespace infra
     };
 
     template<std::size_t tag>
-    class DeviceAddressFactory<tag, std::enable_if_t<isNamedPipeDevice<tag>()>>
+    class DeviceAddressFactory<tag, std::enable_if_t<isNamedPipeDevice<tag>()>> : public StringAddressFactory<DeviceAddressFactory<tag>, NamedPipeAddress>
     {
        static inline const char * const PATHNAME_PARAM{"PATHNAME"};
     public:

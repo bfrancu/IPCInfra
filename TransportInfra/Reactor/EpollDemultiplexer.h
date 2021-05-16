@@ -168,6 +168,38 @@ public:
                     events_list[i].events = (events_list[i].events & ~EPOLLHUP);
                 }
                 std::cout << "EpollDemultiplexer::monitorWaitThread() passing events mask: " << events_list[i].events << "\n";
+                if (events_list[i].events & EPOLLIN)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() in event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLPRI)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() pri event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLOUT)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() out event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLRDNORM)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() rdnorm event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLRDBAND)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() rdband event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLWRNORM)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() wrnorm event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLWRBAND)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() wrband event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLMSG)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() msg event received errno: " << errno << "\n";
+                }
                 if (events_list[i].events & EPOLLERR)
                 {
                     std::cout << "EpollDemultiplexer::monitorWaitThread() error event received errno: " << errno << "\n";
@@ -180,10 +212,23 @@ public:
                 {
                     std::cout << "EpollDemultiplexer::monitorWaitThread() shutdown event received errno: " << errno << "\n";
                 }
-                if (events_list[i].events & EPOLLOUT)
+                if (events_list[i].events & EPOLLEXCLUSIVE)
                 {
-                    std::cout << "EpollDemultiplexer::monitorWaitThread() out event received errno: " << errno << "\n";
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() exclusive event received errno: " << errno << "\n";
                 }
+                if (events_list[i].events & EPOLLWAKEUP)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() wakepup event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLONESHOT)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() oneshot event received errno: " << errno << "\n";
+                }
+                if (events_list[i].events & EPOLLET)
+                {
+                    std::cout << "EpollDemultiplexer::monitorWaitThread() epollet event received errno: " << errno << "\n";
+                }
+
                 m_consumer_queue.push(EventNotification<handle_t>{events_list[i].data.fd, events_list[i].events});
             }
         }

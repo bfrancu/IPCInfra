@@ -20,10 +20,11 @@ class DeviceTestEventHandler : public infra::BaseEventHandlingPolicy<DeviceTestE
     using EventHandlingBase = infra::BaseEventHandlingPolicy<DeviceTestEventHandler<Device, Listener>, Listener>;
     using ClientServerLogicBase = infra::ClientCallbackPolicy<DeviceTestEventHandler<Device, Listener>, Device>;
 
-    using address_t = typename Device::address_type;
     //using traits_t = traits::select_traits<Device>;
     friend ClientServerLogicBase;
     friend EventHandlingBase;
+public:
+    using address_t = typename Device::address_type;
 
 public:
     DeviceTestEventHandler(Device & device, Listener & listener) :

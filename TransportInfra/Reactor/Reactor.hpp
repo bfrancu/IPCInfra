@@ -376,8 +376,25 @@ protected:
                     continue;
                 }
                 std::cout << "Reactor::eventProcessingThread() subscriber id found\n";
+                auto print = [](const events_array & arr){
+                    std::cout << "printing events array\n";
+                    for (unsigned i = 0; i < arr.size(); ++i)
+                    {
+                        std::cout << "event #" << i << ": " << static_cast<unsigned>(arr[i]) << "\n";
+                    }
+                };
+
                 events_array events = m_demux_impl.getEventsFromMask(event_notification.notified_events_mask);
+                /*
+                std::cout << "printing unsorted events\n";
+                print(events);
+                */
                 sortByPriority(events);
+
+                /*
+                std::cout << "printing sorted events\n";
+                print(events);
+                */
 
                 for (auto event : events){
                      if (EHandleEvent::E_HANDLE_EVENT_NULL == event) continue;

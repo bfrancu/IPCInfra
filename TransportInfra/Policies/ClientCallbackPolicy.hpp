@@ -20,7 +20,7 @@ class ClientCallbackPolicy
     */
 public:
     bool connect(...) { return true; }
-    void disconnect();
+    bool disconnect() { return true; }
     bool ProcessInputEvent() { return true; }
     bool ProcessOutputEvent() { return true; }
     bool ProcessHangupEvent() { return true; }
@@ -32,7 +32,7 @@ template<typename Derived, typename Device>
 class ClientCallbackPolicy<Derived, Device, std::enable_if_t<IsConnectableDeviceT<Device>::value>>
 {
    // using Device = typename Derived::Device;
-    using address_t = typename Device::address_type;
+   using address_t = typename Device::address_type;
 
 public:
     bool connect(const address_t & addr, bool non_blocking)
@@ -67,7 +67,31 @@ public:
         }
     }
 
+    template<typename... Args>
+    ssize_t send(Args&&... args)
+    {
+        return sendImpl<Device>(this->asDerived().getDevice(), std::forward<Args>(args)...);
+    }
+
 protected:
+    ssize_t sendImpl(...){ return -1; }
+
+    template<typename Dev, typename... Args, 
+             typename = decltype(std::declval<std::decay_t<Dev>>().send(std::declval<Args&&>()...))>
+    std::enable_if_t<IsSendableDeviceT<Dev>::value, ssize_t> 
+    sendImpl(Dev & device, Args&&... args)
+    {
+        return device.send(std::forward<Args>(args)...);
+    }
+
+    template<typename Dev, typename... Args,
+             typename, typename = decltype(std::declval<std::decay_t<Dev>>().write(std::declval<Args&&>()...))>
+    std::enable_if_t<(IsWritableDeviceT<Dev>::value && !IsSendableDeviceT<Dev>::value), ssize_t> 
+    sendImpl(Dev & device, Args&&... args)
+    {
+        return device.write(std::forward<Args>(args)...);
+    }
+
     bool ProcessInputEvent()
     {
         std::cout << "ClientCallbackPolicy::ProcessInputEvent()\n";
@@ -108,11 +132,13 @@ protected:
 
     bool ProcessDisconnectionEvent()
     {
-        size_t endpointState = this->asDerived().getConnectionState();
-        if (static_cast<size_t>(EConnectionState::E_DISCONNECTED) != endpointState)
+        std::cout << "ClientCallbackPolicy::ProcessDisconnectionEvent()\n";
+        size_t endpoint_state = this->asDerived().getConnectionState();
+        if (static_cast<size_t>(EConnectionState::E_DISCONNECTED) != endpoint_state)
         {
             this->asDerived().setState(EConnectionState::E_DISCONNECTED);
         }
+        m_connected = false;
         return true;
     }
 

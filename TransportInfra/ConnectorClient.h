@@ -100,7 +100,8 @@ class ConnectorClient
 public:
     ConnectorClient(Connector<Listener> & connector, std::string_view file_name):
         config_file{file_name},
-        m_connector{connector}
+        m_connector{connector},
+        m_p_dynamic_transport_endpoint{std::make_unique<ClientDynamicTransportEndpointAdapter<EndpointTypes>>()}
     {}
 
 public:
@@ -118,16 +119,41 @@ public:
             std::cout << "Static device type is: " << static_device_tag << "; dynamic device type is: " << m_device_type << "\n";
         }
 
-        auto dynamic_completion_cb = [](auto endpoint) { (void) endpoint; std::cout << "dynamic endpoint cb\n"; };
-        auto static_completion_cb = [this] (std::unique_ptr<IClientTransportEndpoint>&& p_endpoint) { std::cout <<"static endpoint cb\n";
-            m_p_static_transport_endpoint.reset(reinterpret_cast<StaticTransportEndpoint*>(p_endpoint->releaseInternalEndpoint()));
-            m_p_static_transport_endpoint->registerInputCallback([](std::string_view content){
-                std::cout << "ConnectorClient::inputCallback received: " << content << "\n";
+        auto dynamic_completion_cb = [this](std::unique_ptr<IClientTransportEndpoint>&& p_endpoint) {
+            std::cout << "dynamic endpoint cb\n";
+            if (!p_endpoint) {
+                std::cout << "Empty dynamic endpoint\n";
+                return;
+            }
+
+            if (!m_p_dynamic_transport_endpoint->init(std::move(p_endpoint), m_device_type))
+            {
+                std::cout << "dynamic transport endpoint initialization failed\n";
+                return;
+            }
+
+            m_p_dynamic_transport_endpoint->registerInputCallback([](std::string_view content){
+                std::cout << "ConnectorClient::DynamicEndpoint inputCallback received: " << content << "\n";
             });
+
+            m_p_dynamic_transport_endpoint->registerDisconnectionCallback([](){ std::cout << "DynamicEndpoint::disconnectionCallback\n"; });
         };
 
-        //std::cout << "\nConnecting dynamic device\n";
-        //ConnectorAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);
+        auto static_completion_cb = [this] (std::unique_ptr<IClientTransportEndpoint>&& p_endpoint) { std::cout <<"static endpoint cb\n";
+            if (!p_endpoint) {
+                std::cout << "Empty static endpoint\n";
+                return;
+            }
+            m_p_static_transport_endpoint.reset(reinterpret_cast<StaticTransportEndpoint*>(p_endpoint->releaseInternalEndpoint()));
+            m_p_static_transport_endpoint->registerInputCallback([](std::string_view content){
+                std::cout << "ConnectorClient::StaticEndpoint inputCallback received: " << content << "\n";
+            });
+
+            m_p_static_transport_endpoint->registerDisconnectionCallback([](){ std::cout << "StaticEndpoint::disconnectionCallback\n"; });
+        };
+
+        std::cout << "\nConnecting dynamic device\n";
+        ConnectorAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);
         std::cout << "\nConnecting static device\n";
         ConnectorAdapter::connect<client_traits, static_device_tag>(book, section, m_connector, static_completion_cb);
     }

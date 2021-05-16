@@ -95,6 +95,8 @@ public:
        initData(ipv4_addr.s_addr);
    }
 
+   inline void clear() { resetData(); }
+
 public:
    bool isLoopback() const {
       return *this  == in_addr{ntohl(INADDR_LOOPBACK)};
@@ -121,7 +123,7 @@ public:
        return ret;
    }
 
-   //size_t getAddressSize() { return IPV4_ADDR_SIZE; }
+   static size_t getAddressLength() { return IPV4_ADDR_SIZE; }
 
    std::string_view toStringReadOnly() const{
        return m_valid ? m_printable_address : std::string_view();
@@ -250,7 +252,9 @@ public:
         initData(reinterpret_cast<const uint8_t*>(&ipv6_addr));
     }
 
-public:    
+   inline void clear() { resetData(); }
+
+public:
     bool isLoopback() const {
         return *this == in6addr_loopback;
     }
@@ -283,6 +287,8 @@ public:
     std::string toStringFullFormat() const{
         return utils::inet::addressToString(m_ipv6_address.data(), m_ipv6_address.size());
     }
+
+    static std::size_t getAddressLength() { return IPV6_ADDR_SIZE; }
 
 private:
     void initData(std::string_view address){

@@ -85,7 +85,8 @@ events_array getEventsFromMask(uint32_t mask)
     {
         if (mask & handleEventToEpollFlag[index])
         {
-            ret_arr[index] = static_cast<EHandleEvent>(index);
+            //std::cout << "getEventsFromMask() adding " << index << " to mask\n";
+            ret_arr[index-1] = static_cast<EHandleEvent>(index);
         }
     }
     /*

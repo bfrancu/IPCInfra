@@ -37,6 +37,14 @@ template<typename Device>
 struct IsConnectableDeviceT<Device, std::true_type> : def::has_member_disconnect<Device>
 {};
 
+template<typename Device>
+struct IsSendableDeviceT : def::has_member_send<Device>
+{};
+
+template<typename Device>
+struct IsWritableDeviceT : def::has_member_write<Device>
+{};
+
 }//infra
 
 #endif

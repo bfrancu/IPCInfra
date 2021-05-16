@@ -17,8 +17,6 @@ namespace infra
 
 class DefinitionsContainer
 {
-    DEFINE_DISPATCH_TO_MEMBER(connect);
-    DEFINE_DISPATCH_TO_MEMBER(disconnect);
     DEFINE_DISPATCH_TO_MEMBER(registerInputCallback);
     DEFINE_DISPATCH_TO_MEMBER(registerDisconnectionCallback);
 
@@ -27,16 +25,16 @@ class DefinitionsContainer
 
 class ClientDefinitionsContainer
 {
-    DEFINE_DISPATCH_TO_MEMBER(onConnected);
+    //DEFINE_DISPATCH_TO_MEMBER(onConnected);
+    DEFINE_DISPATCH_TO_MEMBER(connect);
+    //DEFINE_DISPATCH_TO_MEMBER(disconnect);
+    DEFINE_DISPATCH_TO_MEMBER(send);
     template<typename> friend class ClientDynamicTransportEndpointAdapter;
 };
 
 template<typename EndpointTList>
 class DynamicTransportEndpointAdapter
 {
-    using DeviceTList = typename get_devices_from_endpoint_typelist<EndpointTList>::type;
-    using Def = DefinitionsContainer;
-
 public:
     using InputAvailableCB = std::function<void(std::string_view)>;
     using DisconnectedCB = std::function<void()>;
@@ -94,33 +92,6 @@ public:
         return false;
     }
 
-    // device interface wrappers
-    bool connect(std::string_view address)
-    {
-        (void) address;
-        return true;
-    }
-
-    template<typename Address>
-    decltype(auto) connect(Address && address)
-    {
-        using return_t = typename Def::connect_dispatcher<DeviceTList>::return_connect_variant;
-        return_t ret;
-        if (m_pEndpoint)
-        {
-            auto wrapper = meta::dispatch::wrap(m_pEndpoint->getDevice());
-            ret = Def::connect_dispatcher<DeviceTList>::call(m_device_tag, wrapper, std::forward<Address>(address));
-        }
-        return ret;
-    }
-
-    void disconnect()
-    {
-        if (!m_pEndpoint) return;
-        auto wrapper = meta::dispatch::wrap(m_pEndpoint->getDevice());
-        Def::disconnect_dispatcher<DeviceTList>::call(m_device_tag, wrapper);
-    }
-
     inline bool listenerSubscribe(const events_array & events) { 
         if (!m_pEndpoint) return false;
         return m_pEndpoint->listenerSubscribe(events); 
@@ -142,6 +113,10 @@ public:
     inline std::size_t getConnectionState() const { return m_pEndpoint->getConnectionState(); }
 
 protected:
+    using DeviceTList = typename get_devices_from_endpoint_typelist<EndpointTList>::type;
+    using Def = DefinitionsContainer;
+
+protected:
     inline std::size_t deviceTag() const { return m_device_tag; }
     inline std::unique_ptr<ITransportEndpoint> & endpoint() { return m_pEndpoint; }
     inline const std::unique_ptr<ITransportEndpoint> & endpoint() const { return m_pEndpoint; }
@@ -155,7 +130,9 @@ template<typename EndpointTList>
 class ClientDynamicTransportEndpointAdapter : public DynamicTransportEndpointAdapter<EndpointTList>
 {
     using Base = DynamicTransportEndpointAdapter<EndpointTList>;
+    using DeviceTList = typename Base::DeviceTList;
     using Def = ClientDefinitionsContainer;
+
 public:
     ClientDynamicTransportEndpointAdapter() = default;
 
@@ -181,11 +158,56 @@ public:
     {
         if (!Base::endpoint()) return;
         std::unique_ptr<IClientTransportEndpoint> & p_endpoint = static_cast<std::unique_ptr<IClientTransportEndpoint>&>(Base::endpoint());
-        auto wrapper = meta::dispatch::wrap(Base::endpoint()->getInternalEndpoint());
-
-        Def::onConnected_dispatcher<EndpointTList>::call(Base::deviceTag(), wrapper);
+        p_endpoint->onConnected();
     }
 
+    bool connect(std::string_view addr, bool non_blocking)
+    {
+        if (!Base::endpoint()) return false;
+        std::unique_ptr<IClientTransportEndpoint> & p_endpoint = static_cast<std::unique_ptr<IClientTransportEndpoint>&>(Base::endpoint());
+        return p_endpoint->connect(addr, non_blocking);
+    }
+
+    template<typename Address>
+    decltype(auto) connect(Address && address)
+    {
+        using return_t = typename Def::connect_dispatcher<EndpointTList>::return_connect_variant;
+        return_t ret;
+        if (Base::endpoint())
+        {
+            auto wrapper = meta::dispatch::wrap(Base::endpoint()->getInternalEndpoint());
+            ret = Def::connect_dispatcher<EndpointTList>::call(this->getDeviceTag(), wrapper, std::forward<Address>(address));
+        }
+        return ret;
+    }
+    /*
+    ssize_t send(std::string_view data)
+    {
+        if (!Base::endpoint()) return -1;
+        std::unique_ptr<IClientTransportEndpoint> & p_endpoint = static_cast<std::unique_ptr<IClientTransportEndpoint>&>(Base::endpoint());
+        p_endpoint->send();
+    }
+    */
+
+    template<typename... Args>
+    decltype(auto) send(Args&&... args)
+    {
+        using return_t = typename Def::send_dispatcher<EndpointTList>::return_send_variant;
+        return_t ret;
+        if (Base::endpoint())
+        {
+            auto wrapper = meta::dispatch::wrap(Base::endpoint()->getInternalEndpoint());
+            ret = Def::send_dispatcher<EndpointTList>::call(this->getDeviceTag(), wrapper, std::forward<Args>(args)...);
+        }
+        return ret;
+    }
+
+    void disconnect()
+    {
+        if (!Base::endpoint()) return;
+        std::unique_ptr<IClientTransportEndpoint> & p_endpoint = static_cast<std::unique_ptr<IClientTransportEndpoint>&>(Base::endpoint());
+        p_endpoint->disconnect();
+    }
 };
 }//infra
 #endif

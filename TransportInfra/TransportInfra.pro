@@ -29,6 +29,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     ConnectorClient.cpp \
+    Devices/Pipes/NamedPipeAddress.cpp \
     Devices/Pipes/NamedPipeFactory.cpp \
     Devices/Sockets/UnixSocketAddress.cpp \
     Policies/UnixResourceHandler.cpp \

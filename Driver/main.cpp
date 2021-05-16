@@ -62,6 +62,7 @@ void testTransportMain();
 void testReactor();
 void testSharedLookupTable();
 void testFileInfo();
+void testAddressToString();
 
 namespace infra{
 DEFINE_STATE_CHANGE_ADVERTISER_POLICY(AEIOU);
@@ -127,6 +128,7 @@ struct my_dummy{};
 int main()
 {
     using namespace infra;
+    //testAddressToString();
     //testSharedLookupTable();
     //testReactor();
     //infra::meta::dispatch::dispatch_main();
@@ -334,6 +336,83 @@ void testSharedLookupTable()
     std::for_each(std::begin(table_vector_keys_snapshot), std::end(table_vector_keys_snapshot), printer);
     std::cout << "printing map table keys snapshot\n";
     std::for_each(std::begin(table_map_keys_snapshot), std::end(table_map_keys_snapshot), printer);
+}
+
+void testAddressToString()
+{
+    using namespace infra;
+    std::string fifo_path{"/home/bfrancu/Documents/Work/myfifo2"};
+    std::string unx_pathname{"/home/bfrancu/Documents/Work/unix_pathname"};
+    std::string ipv4_addr{"192.168.0.1:5678"};
+    std::string ipv6_addr{"2001:0DB8:Ac10:FE01:::3281"};
+
+    IPV6InetSocketAddress ipv6_sock_addr;
+    IPV4InetSocketAddress ipv4_sock_addr;
+    unx::UnixSocketAddress unx_sock_addr;
+
+    NamedPipeAddress fifo_addr(fifo_path);
+    std::string fifo_addr_str = fifo_addr.toString();
+    NamedPipeAddress fifo_addr_from_str;
+    fifo_addr_from_str.fromString(fifo_addr_str);
+
+    std::cout << "testAddressToString()\n"
+        << "original fifo addr: " << fifo_addr 
+        << ";\nfifo addr to str: " << fifo_addr_str 
+        << ";\nfifo addr from str: " << fifo_addr_from_str << "\n";
+
+    if(unx_sock_addr.fromString(unx_pathname))
+    {
+        std::cout << "testAddressToString() initialization done from unx str addr\n"; 
+    }
+    else
+    {
+        std::cerr << "testAddressToString() initialization failed from unx str addr\n"; 
+    }
+    std::string unx_sock_addr_str = unx_sock_addr.toString();
+    unx::UnixSocketAddress unx_sock_addr_from_str;
+    unx_sock_addr_from_str.fromString(unx_sock_addr_str);
+
+    std::cout << "testAddressToString()\n"
+        << "original unix socket addr : " << unx_sock_addr 
+        << ";\nunix socket addr to str: " << unx_sock_addr_str 
+        << ";\nunix socket addr from str: " << unx_sock_addr_from_str << "\n";
+
+    if (ipv4_sock_addr.fromString(ipv4_addr))
+    {
+        std::cout << "testAddressToString() initialization done from ipv4 str addr\n"; 
+    }
+    else
+    {
+        std::cerr << "testAddressToString() initialization failed from ipv4 str addr\n"; 
+    }
+
+    std::string ipv4_sock_addr_str = ipv4_sock_addr.toString();
+    IPV4InetSocketAddress ipv4_sock_addr_from_str;
+    ipv4_sock_addr_from_str.fromString(ipv4_sock_addr_str);
+
+    std::cout << "testAddressToString() "
+        << "\nipv4 original socket addr : " << ipv4_sock_addr 
+        << "\nipv4 socket addr to str: " << ipv4_sock_addr_str
+        << "\nipv4 socket addr from str: " << ipv4_sock_addr_from_str << "\n";
+
+    if (ipv6_sock_addr.fromString(ipv6_addr))
+    {
+        std::cout << "testAddressToString() initialization done from ipv6 str addr\n"; 
+    }
+    else
+    {
+        std::cerr << "testAddressToString() initialization failed from ipv6 str addr\n"; 
+    }
+
+    std::string ipv6_sock_addr_str = ipv6_sock_addr.toString();
+    IPV6InetSocketAddress ipv6_sock_addr_from_str;
+    ipv6_sock_addr_from_str.fromString(ipv6_sock_addr_str);
+
+    std::cout << "testAddressToString() "
+        << "\nipv6 original socket addr : " << ipv6_sock_addr 
+        << "\nipv6 socket addr to str: " << ipv6_sock_addr_str
+        << "\nipv6 socket addr from str: " << ipv6_sock_addr_from_str << "\n";
+   
 }
 
 void testReactor()

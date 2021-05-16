@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <cstring>
 
+#include <charconv>
 #include <memory>
 
 #include "Traits/socket_traits.hpp"
@@ -29,20 +30,69 @@ struct NetworkAddress{
     uint16_t    port_number{0};
     HostAddress host_address;
 
+    static constexpr char ADDRESS_PORT_STR_SEPARATOR{':'};
+
     bool empty() const { return 0 == port_number && host_address.toStringReadOnly().empty(); }
 
     bool operator==(const NetworkAddress & other) const{
         return host_address == other.host_address && port_number == other.port_number; }
 
     bool operator<(const NetworkAddress & other) const{
-         return (host_address < other.host_address) ?
-                     true : (host_address == other.host_address) ?
-                         (port_number < other.port_number) : false; }
+         return (host_address < other.host_address) ? true
+                                                    : (host_address == other.host_address) ? (port_number < other.port_number)
+                                                                                           : false; }
 
     friend inline std::ostream & operator<<(std::ostream & os, const NetworkAddress & addr)
     {
         os << "port: " << addr.port_number << " addr: " << addr.host_address.toStringReadOnly() << "\n";
         return os;
+    }
+
+    bool fromString(std::string_view addr_view)
+    {
+        //std::cout << "NetworkAddress:fromString() addr_view: " << addr_view << "\n";
+        host_address.clear();
+        port_number = 0;
+
+        auto sep_pos = addr_view.find_last_of(ADDRESS_PORT_STR_SEPARATOR);
+        if (std::string_view::npos == sep_pos){
+           // std::cout << "NetworkAddress:fromString() separator not found\n";
+            return false;
+        }
+
+        auto port_view = addr_view.substr(sep_pos + 1);
+        if (auto [ptr, err_code] = std::from_chars(port_view.data(), port_view.data() + port_view.size(), port_number);
+            std::errc() != err_code) {
+            port_number = 0;
+            return false;
+        }
+
+        auto hostaddr_view = addr_view.substr(0, sep_pos);
+        //std::cout << "NetworkAddress::fromString() hostaddr_view: " << hostaddr_view << " port_view: " << port_view << "\n";
+        host_address.setAddress(hostaddr_view);
+        if (!host_address.isValid())
+        {
+            host_address.clear();
+            port_number = 0;
+            return false;
+        }
+
+        return true;
+    }
+
+    std::string toString() const
+    {
+        std::array<char, 10> buffer;
+        std::string ret;
+        if (auto [ptr, err_code] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), port_number);
+            std::errc() == err_code){
+            auto port_str_len = ptr - buffer.data();
+            ret.reserve(host_address.getAddressLength() + port_str_len + 1);
+            ret = host_address.toString();
+            ret += ADDRESS_PORT_STR_SEPARATOR;
+            ret.append(buffer.data(), port_str_len);
+        }
+        return ret;
     }
 };
 
@@ -142,6 +192,9 @@ public:
         os << "IPV4 InetSocketAddress: address = " << addr.m_address;
         return os;
     }
+
+    inline bool fromString(std::string_view addr_view) { return m_address.fromString(addr_view); }
+    inline std::string toString() const { return m_address.toString(); }
 
 public:
     inline static size_t getAddressLength(){
@@ -257,6 +310,9 @@ public:
         os << "IPV6 InetSocketAddress: address = " << addr.m_address;
         return os;
     }
+
+    inline bool fromString(std::string_view addr_view) { return m_address.fromString(addr_view); }
+    inline std::string toString() const { return m_address.toString(); }
 
 public:
     inline static size_t getAddressLength(){

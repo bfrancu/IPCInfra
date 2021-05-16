@@ -1,6 +1,7 @@
 #ifndef DISPATCHER_POLICY_HPP
 #define DISPATCHER_POLICY_HPP
 #include <functional>
+#include <iostream>
 #include <string_view>
 #include <string>
 
@@ -57,6 +58,7 @@ protected:
 
     void ProcessDisconnection()
     {
+        std::cout << "BaseDispatcherPolicy::ProcessDisconnection()\n";
         if (m_disconnectionCB){
             m_disconnectionCB();
         }

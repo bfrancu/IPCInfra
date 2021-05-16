@@ -16,6 +16,12 @@ namespace infra
 
 namespace unx
 {
+
+void UnixAddress::setPathname(std::string_view path)
+{
+    pathname.assign(path.data(), path.size());
+    std::cout << "UnixAddress::setPathname: " << pathname << "\n";
+}
 UnixSocketAddress::UnixSocketAddress() :
     m_address{},
     m_p_unx_addr{std::make_unique<sockaddr_un>()}
@@ -53,9 +59,16 @@ UnixSocketAddress &UnixSocketAddress::operator=(const UnixSocketAddress &other)
     return *this;
 }
 
+bool UnixSocketAddress::fromString(std::string_view addr)
+{
+    UnixAddress unx_addr;
+    unx_addr.setPathname(addr);
+    return setAddress(unx_addr);
+}
+
 bool UnixSocketAddress::setAddress(UnixAddress addr)
 {
-    std::cout << "UnixSocketAddress::setAddress()\n";
+    std::cout << "UnixSocketAddress::setAddress() : " << addr << "\n";
     if (addr.pathname.empty()) return false;
 
     m_address = std::move(addr);
@@ -74,6 +87,11 @@ void UnixSocketAddress::setAddress(const sockaddr &sock_addr)
               p_remote_unix_sock_addr->sun_path + unix_path_len,
               m_p_unx_addr->sun_path);
     m_address.pathname = m_p_unx_addr->sun_path;
+}
+
+std::string UnixSocketAddress::toString() const
+{
+    return m_address.pathname;
 }
 
 void UnixSocketAddress::getAddress(UnixSocketAddress::address_type &out_addr) const

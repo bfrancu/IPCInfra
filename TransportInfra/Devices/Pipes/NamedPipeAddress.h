@@ -11,6 +11,7 @@ struct NamedPipeAddress
     
     NamedPipeAddress() = default;
     NamedPipeAddress(address_type addr) : pathname{std::move(addr)} {}
+
     friend bool operator==(const NamedPipeAddress & first, const NamedPipeAddress & second){
         return first.pathname == second.pathname;
     }
@@ -18,24 +19,14 @@ struct NamedPipeAddress
         return first.pathname < second.pathname;
     }
 
-    bool setAddress(address_type addr) {
-        pathname = std::move(addr);
-        return true;
-    }
+    bool fromString(std::string_view addr);
+    bool setAddress(address_type addr) ;
 
-    void getAddress(address_type & out_addr) const
-    {
-        out_addr = pathname;
-    }
-
-    address_type getAddress() const { return pathname; }
-    bool empty() const { return pathname.empty(); }
-
-    friend inline std::ostream & operator<<(std::ostream & os, const NamedPipeAddress & addr)
-    {
-        os  << "NamedPipeAddress; pathname = " << addr.pathname << "\n";
-        return os;
-    }
+    inline void getAddress(address_type & out_addr) const { out_addr = pathname; }
+    inline address_type getAddress() const { return pathname; }
+    inline std::string toString() const { return getAddress(); }
+    inline bool empty() const { return pathname.empty(); }
+    friend std::ostream & operator<<(std::ostream & os, const NamedPipeAddress & addr);
 
     address_type pathname;
 };

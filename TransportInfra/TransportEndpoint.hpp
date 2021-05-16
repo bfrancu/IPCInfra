@@ -1,6 +1,7 @@
 #ifndef TRANSPORTENDPOINT_HPP
 #define TRANSPORTENDPOINT_HPP
 #include <memory>
+#include "utilities.hpp"
 #include "Host.hpp"
 #include "Reactor/EventTypes.h"
 #include "Devices/GenericDeviceAccess.hpp"
@@ -28,6 +29,9 @@ class IClientTransportEndpoint : public ITransportEndpoint
 {
 public:
     virtual void onConnected() = 0;
+    virtual bool disconnect() = 0;
+    virtual bool connect(std::string_view addr, bool non_blocking) = 0;
+    //virtual ssize_t send(std::string_view data) = 0;
 };
 
 template<typename T, typename AbstractInterface = ITransportEndpoint>
@@ -83,6 +87,25 @@ public:
     void onConnected() override {
         this->m_pEndpoint->onConnected();
     }
+
+    bool disconnect() override {
+        return this->m_pEndpoint->disconnect();
+    }
+
+    bool connect(std::string_view addr, bool non_blocking) override{
+        typename T::DeviceAddress dev_addr;
+        //TODO Create overload in DeviceAddressFactry that returns a string from the DeviceAddress
+        if (dev_addr.fromString(addr)){
+            return this->m_pEndpoint->connect(dev_addr, non_blocking);
+        }
+        return false;
+    }
+
+    /*
+    ssize_t send(std::string_view data) override{
+        return this->m_pEndpoint->send(data);
+    }
+    */
 };
 /*
  * TODO Move The Listener subscribe/handle event logic to a separate policy
@@ -110,6 +133,7 @@ class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<Assembled
 
 public:
     using Device = AssembledDevice;
+    using DeviceAddress = typename Device::address_type;
     using SubscriberID = typename Listener::SubscriberID;
 
 public:
@@ -130,7 +154,8 @@ public:
 
     bool onDisconnection()
     {
-        DispatcherBase::ProcessDisconnection();
+        std::cout << "TransportEndpoint::onDisconnection()\n";
+        //DispatcherBase::ProcessDisconnection();
         return ClientServerLogicBase::ProcessDisconnectionEvent();
     }
 
@@ -161,7 +186,13 @@ public:
 protected:
     void setState(EConnectionState state)
     {
-        m_connectionState = static_cast<std::size_t>(state);
+        std::cout << "TransportEndpoint::setState() new state: " << utils::to_underlying(state) << "\n";
+        std::size_t old_state{m_connectionState};
+        m_connectionState = utils::to_underlying(state);
+        if(EConnectionState::E_DISCONNECTED == state && old_state != utils::to_underlying(EConnectionState::E_DISCONNECTED))
+        {
+            DispatcherBase::ProcessDisconnection();
+        }
     }
 
     inline auto getHandle() const { return GenericDeviceAccess::getHandle(m_device); }
