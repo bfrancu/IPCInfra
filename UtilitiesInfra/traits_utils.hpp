@@ -35,6 +35,34 @@ struct has_member_##Member : std::false_type {};  \
 template<typename T>                              \
 struct has_member_##Member<T, std::void_t<decltype(&T::Member)>> : std::true_type {} //; intentionally skipped
 
+#define DEFINE_MEMBER_TYPE_OR_DEFAULT(MemType)                                        \
+   template<typename Y, typename Def>                                                 \
+   class MemType##_or_default                                                         \
+   {                                                                                  \
+       DEFINE_HAS_TYPE(MemType);                                                      \
+                                                                                      \
+       template<typename U, typename Default, bool = has_type_##MemType<U>::value>    \
+       struct MemType##OrDefaultHelper;                                               \
+                                                                                      \
+       template<typename U, typename Default>                                         \
+       struct MemType##OrDefaultHelper<U, Default, false>                             \
+       {                                                                              \
+           using type = Default;                                                      \
+       };                                                                             \
+                                                                                      \
+       template<typename U, typename Default>                                         \
+       struct MemType##OrDefaultHelper<U, Default, true>                              \
+       {                                                                              \
+           using type = typename U::MemType;                                          \
+       };                                                                             \
+                                                                                      \
+    public:                                                                           \
+       using type = typename MemType##OrDefaultHelper<Y, Def>::type;                  \
+   };                                                                                 \
+                                                                                      \
+   template<typename T, typename Default>                                             \
+   using MemType##_or_default_t = typename MemType##_or_default<T, Default>::type //; intentionally skipped
+
 
 template<typename Pred, typename Type1, typename Type2>
 struct select_if

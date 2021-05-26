@@ -1,6 +1,7 @@
 #ifndef TRANSPORTENDPOINT_HPP
 #define TRANSPORTENDPOINT_HPP
 #include <memory>
+#include "typelist.hpp"
 #include "utilities.hpp"
 #include "Host.hpp"
 #include "Reactor/EventTypes.h"
@@ -8,6 +9,7 @@
 #include "Devices/DeviceDefinitions.h"
 #include "Policies/ConnectionStateChangeAdvertiser.hpp"
 #include "Observable.hpp"
+#include "BaseMemberPair.hpp"
 
 namespace infra
 {
@@ -116,6 +118,7 @@ template <typename AssembledDevice,
           template<typename...> typename DispatcherPolicy,
           template<typename...> typename ClientServerRolePolicy,
           typename Listener,
+          typename Storage = meta::tl::empty_type,
           typename StateChangeCallbackDispatcher = SerialCallbackDispatcher,
           typename Enable = void>
 class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, Listener>,
@@ -127,7 +130,6 @@ class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<Assembled
     using DispatcherBase = DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy,  Listener>, AssembledDevice>;
     using ClientServerLogicBase = ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>;
 
-    //friend class ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>;
     friend ClientServerLogicBase;
     friend EventHandlingBase;
 
@@ -139,7 +141,9 @@ public:
 public:
     explicit TransportEndpoint(Listener & listener) :
         EventHandlingBase(listener)
-    {}
+    {
+        m_optional_storage_and_state.member() = utils::to_underlying(EConnectionState::E_AVAILABLE);
+    }
 
 public:
     bool onInputEvent()
@@ -180,15 +184,15 @@ public:
 public:
     inline Device & getDevice() { return m_device; }
     inline const Device & getDevice() const { return m_device; }
-    inline const Observable<std::size_t> & getConnectionState() const { return m_connectionState; }
-    inline Observable<std::size_t> & getConnectionState() { return m_connectionState; }
+    inline const Observable<std::size_t> & getConnectionState() const { return m_optional_storage_and_state.member(); }
+    inline Observable<std::size_t> & getConnectionState() { return m_optional_storage_and_state.member(); }
 
 protected:
     void setState(EConnectionState state)
     {
         std::cout << "TransportEndpoint::setState() new state: " << utils::to_underlying(state) << "\n";
-        std::size_t old_state{m_connectionState};
-        m_connectionState = utils::to_underlying(state);
+        std::size_t old_state{m_optional_storage_and_state.member()};
+        m_optional_storage_and_state.member() = utils::to_underlying(state);
         if(EConnectionState::E_DISCONNECTED == state && old_state != utils::to_underlying(EConnectionState::E_DISCONNECTED))
         {
             DispatcherBase::ProcessDisconnection();
@@ -198,7 +202,7 @@ protected:
     inline auto getHandle() const { return GenericDeviceAccess::getHandle(m_device); }
 
 private:
-    Observable<std::size_t> m_connectionState;
+    BaseMemberPair<Storage, Observable<std::size_t>> m_optional_storage_and_state;
     bool m_initCompleted;
     AssembledDevice m_device;
     /*

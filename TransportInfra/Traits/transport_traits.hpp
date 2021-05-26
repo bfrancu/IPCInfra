@@ -3,7 +3,10 @@
 #include "Devices/DeviceFactory.hpp"
 #include "Devices/DeviceAddressFactory.hpp"
 #include "Policies/ExporterPolicy.hpp"
+#include "Policies/EventHandlingPolicy.hpp"
+#include "Policies/DispatcherPolicy.hpp"
 #include "TransportEndpoint.hpp"
+#include "TransportDefinitions.h"
 #include "ConnectionParameters.hpp"
 #include "typelist.hpp"
 #include "template_typelist.hpp"
@@ -13,35 +16,49 @@ namespace infra
 {
 
     template<typename DeviceHost,
-             typename Listener,
-             typename TransportPolicies,
              typename EventHandlingPolicy,
              typename DispatcherPolicy,
-             typename ClientServerRolePolicy>
+             typename ClientServerRolePolicy,
+             typename Listener,
+             typename Storage,
+             typename StateChangeCallbackDispatcher,
+             typename TransportPolicies>
     struct generate_transport_endpoint;
 
     template<typename DeviceHost,
-             typename Listener,
-             typename TransportPolicies,
              template <typename...> typename EventHandlingPolicy,
              template <typename...> typename DispatcherPolicy,
-             template <typename...> typename ClientServerRolePolicy>
-    struct generate_transport_endpoint<DeviceHost, Listener, TransportPolicies,
+             template <typename...> typename ClientServerRolePolicy,
+             typename Listener,
+             typename Storage,
+             typename StateChangeCallbackDispatcher,
+             typename TransportPolicies>
+    struct generate_transport_endpoint<DeviceHost,
                                        meta::ttl::pack<EventHandlingPolicy>,
                                        meta::ttl::pack<DispatcherPolicy>,
-                                       meta::ttl::pack<ClientServerRolePolicy>>
+                                       meta::ttl::pack<ClientServerRolePolicy>,
+                                       Listener, 
+                                       Storage,
+                                       StateChangeCallbackDispatcher,
+                                       TransportPolicies>
     {
-        using type = PackHostT<TransportEndpoint<DeviceHost, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>,
-                                 meta::ttl::remove_duplicates_t<TransportPolicies>>;
+        using type = PackHostT<TransportEndpoint<DeviceHost, EventHandlingPolicy, DispatcherPolicy,
+                                                 ClientServerRolePolicy, Listener, Storage, StateChangeCallbackDispatcher>,
+                               meta::ttl::remove_duplicates_t<TransportPolicies>>;
     };
 
     template<typename DeviceHost,
-             typename Listener,
-             typename TransportPolicies,
              typename EventHandlingPolicy,
              typename DispatcherPolicy,
-             typename ClientServerRolePolicy>
-    using generate_transport_endpoint_t = typename generate_transport_endpoint<DeviceHost, Listener, TransportPolicies, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy>::type;
+             typename ClientServerRolePolicy,
+             typename Listener,
+             typename Storage,
+             typename StateChangeCallbackDispatcher,
+             typename TransportPolicies>
+    using generate_transport_endpoint_t = typename generate_transport_endpoint<DeviceHost, EventHandlingPolicy,
+                                                                               DispatcherPolicy, ClientServerRolePolicy,
+                                                                               Listener, Storage,
+                                                                               StateChangeCallbackDispatcher, TransportPolicies>::type;
 
     template<typename TTList>
     struct generate_hierarchy;
@@ -65,8 +82,14 @@ namespace infra
     struct TestPolicy{};
 
     template<std::size_t DeviceTag, typename ClientTraits>
-    struct transport_traits
+    class transport_traits
     {
+        using endpoint_storage_t = def::EndpointStorage_or_default_t<ClientTraits, meta::tl::empty_type>;
+        using endpoint_event_handling_policy_t = def::EventHandlingPolicy_or_default_t<ClientTraits, meta::ttl::pack<BaseEventHandlingPolicy>>;
+        using endpoint_dispatcher_policy_t = def::DispatcherPolicy_or_default_t<ClientTraits, meta::ttl::pack<BaseDispatcherPolicy>>; 
+        using state_change_callback_dispatcher_t = def::StateChangeCallbackDispatcher_or_default_t<ClientTraits, SerialCallbackDispatcher>;
+
+    public:
         static constexpr std::size_t device_tag = DeviceTag;
         using resource_handler_t = typename ClientTraits::ResourceHandler;
         using device_policies_t = typename ClientTraits::DevicePolicies;
@@ -80,11 +103,15 @@ namespace infra
                                                          meta::ttl::push_back_t<typename ClientTraits::TransportPolicies,
                                                                                 Exporter<export_policies_t>::template Policy>>;
 
-        using transport_endpoint_t = generate_transport_endpoint_t<device_host_t, typename ClientTraits::Listener,
-                                                                                  transport_policies_t,
-                                                                                  typename ClientTraits::EventHandlingPolicy,
-                                                                                  typename ClientTraits::DispatcherPolicy,
-                                                                                  typename ClientTraits::ClientServerRolePolicy>;
+
+        using transport_endpoint_t = generate_transport_endpoint_t<device_host_t,
+                                                                   endpoint_event_handling_policy_t,
+                                                                   endpoint_dispatcher_policy_t,
+                                                                   typename ClientTraits::ClientServerRolePolicy,
+                                                                   typename ClientTraits::Listener,
+                                                                   endpoint_storage_t,
+                                                                   state_change_callback_dispatcher_t,
+                                                                   transport_policies_t>;
     };
 
     template<typename ResourceHandler,

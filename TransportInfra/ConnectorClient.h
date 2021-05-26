@@ -24,6 +24,7 @@
 #include "Connector.hpp"
 #include "DynamicTransportEndpointAdaptor.h"
 #include "ConfigurationBook.h"
+#include "typelist.hpp"
 
 namespace infra
 {
@@ -79,10 +80,7 @@ struct default_client_traits
 
     using TransportPolicies = meta::ttl::template_typelist</*ConnectionStateChangeAdvertiserPolicy*/>;
     using Listener = Reactor<int, demux::EpollDemultiplexer<int>>;
-    using EventHandlingPolicy = meta::ttl::pack<BaseEventHandlingPolicy>;
-    using DispatcherPolicy = meta::ttl::pack<BaseDispatcherPolicy>;
     using ClientServerRolePolicy = meta::ttl::pack<ClientCallbackPolicy>;
-    //using ClientServerRolePolicy = meta::ttl::pack<TestClientPolicy>;
 };
 
 template<typename client_traits = default_client_traits>

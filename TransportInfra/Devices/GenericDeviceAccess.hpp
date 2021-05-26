@@ -19,6 +19,7 @@ class GenericDeviceAccess
              template<typename...> typename,
              template<typename...> typename,
              typename Listener,
+             typename Storage,
              typename, typename>
     friend class TransportEndpoint;
 

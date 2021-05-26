@@ -342,6 +342,9 @@ static_assert(has_type_socket_domain<test_socket_traits>::value);
 static_assert(has_type_sequential<test_device_traits>::value);
 static_assert(!has_type_io_profile<test_socket_traits>::value);
 
+DEFINE_MEMBER_TYPE_OR_DEFAULT(socket_type);
+static_assert(std::is_same_v<socket_type_or_default_t<defaults::IPV4TcpSocketDevice, int>, stream_socket>);
+
 namespace policies
 {
 //DEFINE_HAS_MEMBER(read);
