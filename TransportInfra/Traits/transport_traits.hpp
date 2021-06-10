@@ -82,36 +82,109 @@ namespace infra
     struct TestPolicy{};
 
     template<std::size_t DeviceTag, typename ClientTraits>
-    class transport_traits
+    struct generate_device_types
     {
-        using endpoint_storage_t = def::EndpointStorage_or_default_t<ClientTraits, meta::tl::empty_type>;
-        using endpoint_event_handling_policy_t = def::EventHandlingPolicy_or_default_t<ClientTraits, meta::ttl::pack<BaseEventHandlingPolicy>>;
-        using endpoint_dispatcher_policy_t = def::DispatcherPolicy_or_default_t<ClientTraits, meta::ttl::pack<BaseDispatcherPolicy>>; 
-        using state_change_callback_dispatcher_t = def::StateChangeCallbackDispatcher_or_default_t<ClientTraits, SerialCallbackDispatcher>;
-
-    public:
-        static constexpr std::size_t device_tag = DeviceTag;
         using resource_handler_t = typename ClientTraits::ResourceHandler;
         using device_policies_t = typename ClientTraits::DevicePolicies;
-        using export_policies_t = meta::ttl::intersect_t<typename ClientTraits::ExportPolicies, device_policies_t>;
-        using device_t = typename DeviceFactory<device_tag>::template device_type<typename ClientTraits::ResourceHandler>;
+        using device_t = typename DeviceFactory<DeviceTag>::template device_type<resource_handler_t>;
         using handle_t = typename device_t::handle_type;
-        using device_address_t = typename DeviceAddressFactory<device_tag>::DeviceAddressT; 
-        using device_host_t = PackHostT<device_t, meta::ttl::remove_duplicates_t<typename ClientTraits::DevicePolicies>>;
+        using device_address_t = typename DeviceAddressFactory<DeviceTag>::DeviceAddressT;
+        using device_host_t = PackHostT<device_t, meta::ttl::remove_duplicates_t<device_policies_t>>;
+    };
+
+    template<typename ClientTraits>
+    struct generate_endpoint_policies
+    {
+        using device_policies_t = typename ClientTraits::DevicePolicies;
+        using export_policies_t = meta::ttl::intersect_t<typename ClientTraits::ExportPolicies, device_policies_t>;
 
         using transport_policies_t = traits::select_if_t<meta::ttl::is_empty<export_policies_t>, typename ClientTraits::TransportPolicies,
                                                          meta::ttl::push_back_t<typename ClientTraits::TransportPolicies,
                                                                                 Exporter<export_policies_t>::template Policy>>;
 
+        using endpoint_event_handling_policy_t = def::EventHandlingPolicy_or_default_t<ClientTraits, meta::ttl::pack<BaseEventHandlingPolicy>>;
+        using endpoint_dispatcher_policy_t = def::DispatcherPolicy_or_default_t<ClientTraits, meta::ttl::pack<BaseDispatcherPolicy>>;
+        using state_change_callback_dispatcher_t = def::StateChangeCallbackDispatcher_or_default_t<ClientTraits, SerialCallbackDispatcher>;
+        using client_server_role_policy_t = typename ClientTraits::ClientServerRolePolicy;
+        using listener_t = typename ClientTraits::Listener;
+    };
+
+    template<std::size_t DeviceTag, typename ClientTraits, typename = traits::select_if_t<std::conjunction<def::has_type_PeerTraits<ClientTraits>,
+                                                                                                           def::has_type_EndpointStoragePolicy<ClientTraits>>,
+                                                                                          std::true_type,
+                                                                                          std::false_type>>
+    class generate_endpoint_storage;
+
+    template<std::size_t DeviceTag, typename ClientTraits>
+    class generate_endpoint_storage<DeviceTag, ClientTraits, std::false_type>
+    {
+    public:
+        using type = meta::tl::empty_type;
+    };
+
+    template<std::size_t DeviceTag, typename ClientTraits>
+    class generate_endpoint_storage<DeviceTag, ClientTraits, std::true_type>
+    {
+        using peer_client_traits_t = typename ClientTraits::PeerTraits;
+        using peer_endpoint_policies_t = generate_endpoint_policies<peer_client_traits_t>;
+        using peer_device_types_t = generate_device_types<DeviceTag, peer_client_traits_t>;
+        using handle_t = typename peer_device_types_t::handle_t;
+        using peer_device_host_t = typename peer_device_types_t::device_host_t;
+        using peer_endpoint_storage_t = meta::tl::empty_type;
+        using peer_transport_endpoint_t = generate_transport_endpoint_t<peer_device_host_t,
+                                                                        typename peer_endpoint_policies_t::endpoint_event_handling_policy_t,
+                                                                        typename peer_endpoint_policies_t::endpoint_dispatcher_policy_t,
+                                                                        typename peer_endpoint_policies_t::client_server_role_policy_t,
+                                                                        typename peer_endpoint_policies_t::listener_t,
+                                                                        peer_endpoint_storage_t,
+                                                                        typename peer_endpoint_policies_t::state_change_callback_dispatcher_t,
+                                                                        typename peer_endpoint_policies_t::transport_policies_t>;
+
+        using endpoint_storage_key_t = def::EndpointStorageKey_or_default_t<ClientTraits, handle_t>;
+        using endpoint_storage_policy_t = typename ClientTraits::EndpointStorage;
+
+        template<typename Endpoint, typename Key, typename EndpointStoragePolicy>
+        struct apply_types_to_storage_policy
+        {
+            using type = meta::tl::empty_type;
+        };
+
+        template<typename Endpoint, typename Key, template <typename... > typename EndpointStoragePolicy>
+        struct apply_types_to_storage_policy<Endpoint, Key, meta::ttl::pack<EndpointStoragePolicy>>
+        {
+            using type = EndpointStoragePolicy<Endpoint, Key>;
+        };
+
+    public:
+        using type = typename apply_types_to_storage_policy<peer_transport_endpoint_t, endpoint_storage_key_t, endpoint_storage_policy_t>::type;
+    };
+
+
+    template<std::size_t DeviceTag, typename ClientTraits>
+    class transport_traits
+    {
+        using endpoint_policies_t = generate_endpoint_policies<ClientTraits>;
+        using device_types_t = generate_device_types<DeviceTag, ClientTraits>;
+
+    public:
+        static constexpr std::size_t device_tag = DeviceTag;
+        using resource_handler_t = typename device_types_t::resource_handler_t;
+        using device_policies_t = typename device_types_t::device_policies_t;
+        using device_t = typename device_types_t::device_t;
+        using handle_t = typename device_types_t::handle_t;
+        using device_address_t = typename device_types_t::device_address_t;
+        using device_host_t = typename device_types_t::device_host_t;
+        //using endpoint_storage_t = def::EndpointStorage_or_default_t<ClientTraits, meta::tl::empty_type>;
+        using endpoint_storage_t = typename generate_endpoint_storage<DeviceTag, ClientTraits>::type;
 
         using transport_endpoint_t = generate_transport_endpoint_t<device_host_t,
-                                                                   endpoint_event_handling_policy_t,
-                                                                   endpoint_dispatcher_policy_t,
-                                                                   typename ClientTraits::ClientServerRolePolicy,
-                                                                   typename ClientTraits::Listener,
+                                                                   typename endpoint_policies_t::endpoint_event_handling_policy_t,
+                                                                   typename endpoint_policies_t::endpoint_dispatcher_policy_t,
+                                                                   typename endpoint_policies_t::client_server_role_policy_t,
+                                                                   typename endpoint_policies_t::listener_t,
                                                                    endpoint_storage_t,
-                                                                   state_change_callback_dispatcher_t,
-                                                                   transport_policies_t>;
+                                                                   typename endpoint_policies_t::state_change_callback_dispatcher_t,
+                                                                   typename endpoint_policies_t::transport_policies_t>;
     };
 
     template<typename ResourceHandler,

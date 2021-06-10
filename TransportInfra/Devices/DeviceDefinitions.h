@@ -36,6 +36,8 @@ enum class EConnectionState : std::size_t
     E_CONNECTED,
     E_DISCONNECTING,
     E_DISCONNECTED,
+    E_BINDED,
+    E_LISTENING,
     E_ERROR
 };
 

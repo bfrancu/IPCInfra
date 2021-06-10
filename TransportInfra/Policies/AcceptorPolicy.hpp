@@ -92,8 +92,8 @@ protected:
                                    sizeof(opt_val));
     }
 
-    SocketDevice accept(bool non_blocking) {
-        SocketDevice peer_sock;
+    std::optional<SocketDevice> accept(bool non_blocking) {
+        std::optional<SocketDevice> peer_sock;
         if (io::ESocketState::E_STATE_LISTENING != this->asDerived().getState()) return peer_sock;
 
         sockaddr remote_addr;
@@ -107,13 +107,14 @@ protected:
         if (handler_traits<SocketDevice>::defaultValue() != peer_sock_handle){
              address_type peer_sock_addr;
              peer_sock_addr.setAddress(remote_addr);
+             peer_sock.emplace();
 
-             SocketDeviceAccess::setWorkingAddress(peer_sock, std::move(peer_sock_addr));
-             SocketDeviceAccess::setHandle(peer_sock, peer_sock_handle);
-             SocketDeviceAccess::setState(peer_sock, io::ESocketState::E_STATE_CONNECTED);
+             SocketDeviceAccess::setWorkingAddress(peer_sock.value(), std::move(peer_sock_addr));
+             SocketDeviceAccess::setHandle(peer_sock.value(), peer_sock_handle);
+             SocketDeviceAccess::setState(peer_sock.value(), io::ESocketState::E_STATE_CONNECTED);
         }
         else{
-            SocketDeviceAccess::setState(peer_sock, io::ESocketState::E_STATE_ERROR);
+            SocketDeviceAccess::setState(peer_sock.value(), io::ESocketState::E_STATE_ERROR);
         }
         return peer_sock;
     }
@@ -169,7 +170,7 @@ public:
     }
 
     bool listen(int backlog = 50){ return Base::listen(backlog); }
-    SocketDevice accept(bool non_blocking = false)  { return Base::accept(non_blocking); }
+    std::optional<SocketDevice> accept(bool non_blocking = false)  { return Base::accept(non_blocking); }
 
     inline bool isBinded() const { return Base::isBinded(); }
     inline bool isListening() const{ return Base::isListening(); }

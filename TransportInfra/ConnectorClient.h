@@ -83,6 +83,9 @@ struct default_client_traits
     using ClientServerRolePolicy = meta::ttl::pack<ClientCallbackPolicy>;
 };
 
+template<typename Listener>
+using connect_R = Connector2<Listener>;
+
 template<typename client_traits = default_client_traits>
 class ConnectorClient
 {
@@ -91,12 +94,12 @@ class ConnectorClient
     //using TransportPolicies = typename client_traits::TransportPolicies;
     using DevicePolicies = typename client_traits::DevicePolicies;
     using Listener = typename client_traits::Listener;
-    using ConcreteDeviceTypes = typename generate_device_typelist<ResourceHandler, DevicePolicies>::type;
+    //using ConcreteDeviceTypes = typename generate_device_typelist<ResourceHandler, DevicePolicies>::type;
     using EndpointTypes = typename generate_endpoint_typelist<client_traits>::type;
     using StaticTransportEndpoint = typename transport_traits<static_device_tag, client_traits>::transport_endpoint_t;
 
 public:
-    ConnectorClient(Connector<Listener> & connector, std::string_view file_name):
+    ConnectorClient(connect_R<Listener> & connector, std::string_view file_name):
         config_file{file_name},
         m_connector{connector},
         m_p_dynamic_transport_endpoint{std::make_unique<ClientDynamicTransportEndpointAdapter<EndpointTypes>>()}
@@ -137,7 +140,8 @@ public:
             m_p_dynamic_transport_endpoint->registerDisconnectionCallback([](){ std::cout << "DynamicEndpoint::disconnectionCallback\n"; });
         };
 
-        auto static_completion_cb = [this] (std::unique_ptr<IClientTransportEndpoint>&& p_endpoint) { std::cout <<"static endpoint cb\n";
+        auto static_completion_cb = [this] (std::unique_ptr<IClientTransportEndpoint>&& p_endpoint) {
+            std::cout <<"static endpoint cb\n";
             if (!p_endpoint) {
                 std::cout << "Empty static endpoint\n";
                 return;
@@ -151,9 +155,9 @@ public:
         };
 
         std::cout << "\nConnecting dynamic device\n";
-        ConnectorAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);
+        ConnectionInitializerAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);
         std::cout << "\nConnecting static device\n";
-        ConnectorAdapter::connect<client_traits, static_device_tag>(book, section, m_connector, static_completion_cb);
+        ConnectionInitializerAdapter::connect<client_traits, static_device_tag>(book, section, m_connector, static_completion_cb);
     }
 
     inline int getDeviceType() const { return m_device_type; }
@@ -162,7 +166,7 @@ private:
     std::string config_file;
     int m_device_type{static_cast<int>(infra::EDeviceType::E_UNDEFINED_DEVICE)};
 
-    Connector<Listener> & m_connector;
+    connect_R<Listener> & m_connector;
     std::unique_ptr<StaticTransportEndpoint> m_p_static_transport_endpoint;
     std::unique_ptr<ClientDynamicTransportEndpointAdapter<EndpointTypes>> m_p_dynamic_transport_endpoint;
 };

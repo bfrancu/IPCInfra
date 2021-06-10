@@ -8,6 +8,7 @@
 #include "Traits/device_constraints.hpp"
 #include "Traits/transport_traits.hpp"
 #include "Traits/utilities_traits.hpp"
+#include "Traits/storage_traits.hpp"
 #include "Devices/Sockets/SocketDevice.hpp"
 #include "Devices/Pipes/NamedPipeDevice.hpp"
 #include "Devices/Pipes/NamedPipeAddress.h"
@@ -29,8 +30,10 @@
 #include "Reactor/DeviceTestEventHandler.h"
 #include "ConnectorClient.h"
 #include "Host.hpp"
+#include "TransportDefinitions.h"
 #include "template_typelist.hpp"
 #include "utilities.hpp"
+#include "Policies/EndpointStorage.hpp"
 
 namespace infra
 {
@@ -80,7 +83,7 @@ void testConnectorClient()
     using handleT = int;
     using ReactorT = Reactor<handleT, demux::EpollDemultiplexer<handleT>>;
     ReactorT reactor;
-    Connector<ReactorT> connector(reactor);
+    connect_R<ReactorT> connector(reactor);
     //reactor.start();
     //reactor.stop();
     std::string config_file{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
@@ -357,12 +360,18 @@ using ReadFifoWithPolicies = PackHostT<defaults::ReadFifoDevice,
 
 static_assert(has_member_isReadable<ReadFifoWithPolicies>::value);
 
-using FileWithPoliies = PackHostT<defaults::UnixFileDevice, 
+using FileWithPolicies = PackHostT<defaults::UnixFileDevice, 
                                   meta::ttl::template_typelist<FifoIOPolicy,
                                   ResourceStatusPolicy>>;
 
 
+using AcceptorSocket = PackHostT<defaults::IPV6TcpSocketDevice,
+                                 meta::ttl::template_typelist<AcceptorPolicy>>;
 
+static_assert(IsPassiveConnectableDevice<AcceptorSocket>::value);
+static_assert(!IsPassiveConnectableDevice<FileWithPolicies>::value);
+static_assert(traits::apply_predicates_v<AcceptorSocket, def::has_member_bind, def::has_member_listen, def::has_member_accept>);
+static_assert(!traits::apply_predicates_v<AcceptorSocket, def::has_member_connect, def::has_member_listen, def::has_member_accept>);
 //static_assert(std::is_same_v<int, typename UnixSocketWithPolicies::test_type>);
 //make an empty policy class that is partial specialized by traits
 //each specialization exposes a different type
@@ -450,6 +459,12 @@ struct TestClientCallbackPolicy : public ClientCallbackPolicy<TestClientCallback
 
 static_assert(has_member_connect<UnxStrmClientTransportEndpoint>::value);
 
+using SampleSingleStorage = SingleEndpointStorage<int, double>;
+static_assert(traits::is_endpoint_storage_v<SampleSingleStorage>);
+static_assert(def::has_member_store<SampleSingleStorage>::value);
+static_assert(def::has_member_erase<SampleSingleStorage>::value);
+static_assert(traits::has_member_getEndpointFor<SampleSingleStorage>::value);
+static_assert(def::has_member_store<SampleSingleStorage>::value);
 }
 }//transport
 }//infra

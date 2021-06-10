@@ -32,7 +32,6 @@ class StreamIOPolicy<Host,
                        std::enable_if_t<IsUnixPlatformSocketDeviceT<SocketDevice>::value>>
         : public crtp_base<StreamIOPolicy<Host, SocketDevice>, Host>
 {
-    using handle_type  = typename device_traits<SocketDevice>::handle_type;
 
 public:
     ssize_t send(std::string_view data, SocketIOFlags flags = SocketIOFlags{io::ESocketIOFlag::E_MSG_NOSIGNAL}){

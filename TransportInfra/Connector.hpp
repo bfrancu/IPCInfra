@@ -16,9 +16,122 @@
 #include "pointer_traits.hpp"
 #include "default_traits.hpp"
 
+#include "EndpointConnectionInitialiserBase.hpp"
+
 namespace infra
 {
 
+template<typename Demultiplexer, typename Enable = void>
+class Connector2 : public EndpointConnectionInitialiserBase<Connector2<Demultiplexer>, Demultiplexer, IClientTransportEndpoint>
+{
+    struct fifo_device_tag{};
+    struct non_fifo_device_tag{};
+
+    using Base = EndpointConnectionInitialiserBase<Connector2<Demultiplexer>, Demultiplexer, IClientTransportEndpoint>;
+    using CompletionCallback = typename Base::CompletionCallback;
+    using SubscriberID = typename Base::SubscriberID;
+    using SubscriberIter = typename Base::SubscriberIter;
+
+    friend class EndpointConnectionInitialiserBase<Connector2<Demultiplexer>, Demultiplexer, IClientTransportEndpoint>;
+
+public:
+    Connector2(Demultiplexer & eventDemultiplexer) :
+        Base(eventDemultiplexer)
+    {}
+
+    Connector2(const Connector2 &) = delete;
+    Connector2 & operator=(const Connector2 &) = delete;
+
+protected:
+    template<typename Endpoint, typename DeviceAddress>
+    bool connect(const CompletionCallback & cb, const DeviceAddress & addr, std::unique_ptr<Endpoint> p_endpoint, non_fifo_device_tag)
+    {
+        bool non_blocking{true};
+        if (p_endpoint->connect(addr, non_blocking))
+        {
+            std::cout << "Connector::connect(non_fifo_device_tag) device connection done with success\n";
+            using ConcreteWrapper = ClientDynamicTransportEndpointWrapper<Endpoint>;
+            events_array subscribed_events = getArray<EHandleEvent::E_HANDLE_EVENT_OUT>();
+            return Base::template subscribe<ConcreteWrapper>(cb, std::move(p_endpoint), subscribed_events);
+        }
+        return false;
+    }
+
+    template<typename Endpoint, typename DeviceAddress>
+    bool connect(const CompletionCallback & cb, const DeviceAddress & addr, std::unique_ptr<Endpoint> p_endpoint, fifo_device_tag)
+    {
+        using ConcreteWrapper = ClientDynamicTransportEndpointWrapper<Endpoint>;
+        bool non_blocking{true};
+        bool ret{false};
+        std::unique_ptr<IClientTransportEndpoint> p_endpoint_wrapper{nullptr};
+
+        if (p_endpoint->connect(addr, non_blocking))
+        {
+            std::cout << "Connector::connect(fifo_device_tag) device connection done with success\n";
+            p_endpoint_wrapper = meta::traits::static_cast_unique_ptr<ConcreteWrapper, IClientTransportEndpoint>( std::make_unique<ConcreteWrapper>(std::move(p_endpoint)));
+
+            postConnectionAction(p_endpoint_wrapper);
+            ret = true;
+        }
+
+        cb(std::move(p_endpoint_wrapper));
+        return ret;
+    }
+
+protected:
+    template<typename TransportTraits, typename... DeviceConstructorArgs>
+    bool setupImpl(const typename TransportTraits::device_address_t & addr, const CompletionCallback & cb, DeviceConstructorArgs&&... args)
+    {
+        using device_t = typename TransportTraits::device_t;
+        auto p_endpoint = Base::template factorEndpoint<TransportTraits>(Base::getListener(), std::forward<DeviceConstructorArgs>(args)...) ;
+
+        if (p_endpoint)
+        {
+            return connect(cb, addr, std::move(p_endpoint), traits::select_if_t<IsNamedPipeDeviceT<device_t>,
+                                                                                fifo_device_tag,
+                                                                                non_fifo_device_tag>{});
+        }
+
+        return false;
+    }
+
+    EHandleEventResult handleEventImpl(SubscriberIter, EHandleEvent event)
+    {
+        if (EHandleEvent::E_HANDLE_EVENT_OUT == event)
+        {
+            return EHandleEventResult::E_RESULT_SUCCESS;
+        }
+
+        if (enum_flag(event) & (enum_flag(EHandleEvent::E_HANDLE_EVENT_ERR) |
+                                enum_flag(EHandleEvent::E_HANDLE_EVENT_HUP)))
+        {
+            return EHandleEventResult::E_RESULT_FAILURE;
+        }
+
+        return EHandleEventResult::E_RESULT_DEFAULT;
+    }
+
+
+    void handleConnectionSuccess(SubscriberIter client_it)
+    {
+        std::cout << "Connector::handleConnectionSuccess\n";
+        Base::handleConnectionSuccess(client_it);
+    }
+
+    void handleConnectionFailure(SubscriberIter client_it)
+    {
+        std::cout << "Connector::handleConnectionFailure\n";
+        Base::handleConnectionFailure(client_it);
+    }
+
+    bool postConnectionAction(std::unique_ptr<IClientTransportEndpoint> & p_endpoint_wrapper)
+    {
+        p_endpoint_wrapper->onConnected();
+        events_array events = getArray<EHandleEvent::E_HANDLE_EVENT_IN>();
+        p_endpoint_wrapper->listenerSubscribe(events);
+        return true;
+    }
+};
     //using CompletionCallback = std::function<void()>;
 
     /* TODO
@@ -26,7 +139,6 @@ namespace infra
      * Move connection logic to alternative Sync/Async Connection Policy
      * Make the Async Conn policy thread safe
      */
-
     template<typename Demultiplexer, typename Enable = void>
     class Connector
     {
@@ -34,9 +146,6 @@ namespace infra
         struct non_fifo_device_tag{};
 
      public:
-            Connector(Demultiplexer & eventDemultiplexer) :
-                m_demultiplexer(eventDemultiplexer)
-        {}
 
         struct ConnectorClientSubscriber;
         //using CompletionCallback = void(*)(std::unique_ptr<IClientTransportEndpoint>&&);
@@ -58,6 +167,15 @@ namespace infra
             CompletionCallback completion_callback{nullptr};
         };
 
+     public:
+        Connector(Demultiplexer & eventDemultiplexer) :
+            m_demultiplexer(eventDemultiplexer)
+        {}
+
+        Connector(const Connector &) = delete;
+        Connector & operator=(const Connector &) = delete;
+
+     public:
         template<typename TransportTraits, typename... DeviceConstructorArgs>
         bool setup(const typename TransportTraits::device_address_t & addr,
                    const CompletionCallback & cb, DeviceConstructorArgs&&... args)
@@ -79,18 +197,18 @@ namespace infra
 
         EHandleEventResult handleEvent(SubscriberID id, EHandleEvent event)
         {
-            auto client_it = m_active_subscriptions.find(id); 
+            auto client_it = m_active_subscriptions.find(id);
             if(m_active_subscriptions.end() == client_it)
             {
                 return EHandleEventResult::E_RESULT_INVALID_REFERENCE;
             }
-            
+
             if (EHandleEvent::E_HANDLE_EVENT_OUT == event)
             {
                 handleConnectionSuccess(client_it);
                 return EHandleEventResult::E_RESULT_SUCCESS;
             }
-            
+
             handleConnectionFailure(client_it, event);
             return EHandleEventResult::E_RESULT_FAILURE;
         }
@@ -129,7 +247,6 @@ namespace infra
             return false;
         }
 
-
         template<typename Endpoint, typename DeviceAddress>
         bool connect(const CompletionCallback & cb, const DeviceAddress & addr, std::unique_ptr<Endpoint> p_endpoint, fifo_device_tag)
         {
@@ -152,6 +269,7 @@ namespace infra
             return ret;
         }
 
+     private:
         void handleConnectionSuccess(SubscriberIter client_it)
         {
             std::cout << "Connector::handleConnectionSuccess\n";
@@ -173,7 +291,6 @@ namespace infra
             }
         }
 
-     private:
         void postConnectionAction(std::unique_ptr<IClientTransportEndpoint> & p_endpoint_wrapper)
         {
             p_endpoint_wrapper->onConnected();

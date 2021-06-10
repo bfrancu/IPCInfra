@@ -37,7 +37,10 @@ SOURCES += \
     Reactor/EpollDemux.cpp
 
 HEADERS += \
+    Acceptor.hpp \
+    AcceptorClient.h \
     Connector.hpp \
+    Devices/AccessibleHandleBase.h \
     Devices/DeviceFactory.hpp \
     Devices/DeviceAddressFactory.hpp \
     Devices/EmptyDevice.hpp \
@@ -56,15 +59,18 @@ HEADERS += \
     Devices/TemporaryFileDevice.hpp \
     Devices/TestDevice.h \
     Devices/DeviceDefinitions.h \
+    EndpointConnectionInitialiserBase.hpp \
     Policies/AcceptorPolicy.hpp \
     Policies/ClientCallbackPolicy.hpp \
     Policies/ConnectionPolicy.hpp \
     Policies/DatagramIOPolicy.hpp \
+    Policies/EndpointStorage.hpp \
     Policies/ErrorChangeAdvertiserPolicy.h \
     Policies/FifoIOPolicy.hpp \
     Policies/IOPolicy.hpp \
     Policies/ResourceStatusPolicy.hpp \
     Policies/SeekableOperations.hpp \
+    Policies/ServerCallbackPolicy.hpp \
     Policies/StateChangeAdvertiserPolicy.hpp \
     Policies/StreamIOPolicy.hpp \
     Policies/DispatcherPolicy.hpp \

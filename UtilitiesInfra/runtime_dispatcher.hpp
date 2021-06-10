@@ -194,6 +194,7 @@ private:                                                                        
                                                                                                                    \
 public:                                                                                                            \
     using return_##Member##_variant = return_##Member##_variant_internal;                                          \
+    using return_variant = return_##Member##_variant_internal;                                                     \
                                                                                                                    \
     template<typename... Args>                                                                                     \
     static return_##Member##_variant call(std::size_t tag, Args&&... args)                                         \

@@ -4,13 +4,15 @@
 #include <type_traits>
 #include <iostream>
 
+#include "typelist.hpp"
+
 #include "Devices/DeviceDefinitions.h"
 #include "Traits/utilities_traits.hpp"
 
 namespace infra
 {
 
-template<typename Derived, typename Device, typename = void>
+template<typename Derived, typename Device, typename Storage = meta::tl::empty_type, typename = void>
 class ClientCallbackPolicy
 {
     /*
@@ -29,7 +31,7 @@ public:
 };
 
 template<typename Derived, typename Device>
-class ClientCallbackPolicy<Derived, Device, std::enable_if_t<IsConnectableDeviceT<Device>::value>>
+class ClientCallbackPolicy<Derived, Device, meta::tl::empty_type, std::enable_if_t<IsConnectableDeviceT<Device>::value>>
 {
    // using Device = typename Derived::Device;
    using address_t = typename Device::address_type;
@@ -51,7 +53,7 @@ public:
     {
         if (this->asDerived().getDevice().disconnect()){
             this->asDerived().setState(EConnectionState::E_DISCONNECTED);
-            m_connected = false;
+            //m_connected = false;
             return true;
         }
         return false;
@@ -62,7 +64,7 @@ public:
         std::cout << "ClientCallbackPolicy::onConnected()\n";
         if (m_connectionInProgress){
             m_connectionInProgress.store(false);
-            m_connected = true;
+            //m_connected = true;
             this->asDerived().setState(EConnectionState::E_CONNECTED);
         }
     }
@@ -101,7 +103,7 @@ protected:
     bool ProcessOutputEvent()
     {
         std::cout << "ClientCallbackPolicy::ProcessOutputEvent()\n";
-        if (!m_connected && this->asDerived().getConnectionState() == static_cast<std::size_t>(EConnectionState::E_CONNECTING)){
+        if (/*!m_connected &&*/this->asDerived().getConnectionState() == static_cast<std::size_t>(EConnectionState::E_CONNECTING)){
             onConnected();
             std::cout << "ClientCallbackPolicy::ProcessOutputEvent(): connection established\n";
         }
@@ -123,7 +125,7 @@ protected:
 
     bool ProcessErrorEvent() 
     {
-        if (m_connected){
+        if (static_cast<size_t>(EConnectionState::E_CONNECTED) == this->asDerived().getConnectionState()){
             this->asDerived().setState(EConnectionState::E_DISCONNECTING);
             return disconnect();
         }
@@ -138,7 +140,7 @@ protected:
         {
             this->asDerived().setState(EConnectionState::E_DISCONNECTED);
         }
-        m_connected = false;
+        //m_connected = false;
         return true;
     }
 
@@ -150,7 +152,7 @@ protected:
 
 private:
     std::atomic<bool> m_connectionInProgress{false};
-    bool m_connected{false};
+    //bool m_connected{false};
 };
 
 }//infra

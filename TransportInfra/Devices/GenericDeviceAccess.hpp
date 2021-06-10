@@ -12,6 +12,9 @@ class GenericDeviceAccess
     friend class Connector;
 
     template<typename, typename>
+    friend class Acceptor;
+
+    template<typename, typename>
     friend class DeviceTestEventHandler;
 
     template<typename Device, 

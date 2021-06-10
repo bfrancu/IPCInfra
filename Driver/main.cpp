@@ -435,6 +435,11 @@ void testReactor()
     ev_handler.init();
     reactor.start();
 
+    int handle;
+    auto accessor = [&handle] (auto h) { handle = h; };
+    AccessKey<decltype(accessor)> access_key;
+    access_key.retrieve(sock_dev, accessor);
+
     std::string fifo_path{"/home/bfrancu/Documents/Work/myfifo2"};
     uint16_t port{55123};
     bool non_blocking{true};
@@ -517,11 +522,13 @@ void testDeviceTypeErasure()
     std::string config_path{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
     std::string section{"CONNECTION_DETAILS"};
     reactor_t reactor;
-    Connector<reactor_t> connector(reactor);
+    /*
+    Connector2<reactor_t> connector(reactor);
     ConnectorClient<default_client_traits> dl_client{connector, config_path};
     dl_client.init(section);
     int dev_type = dl_client.getDeviceType();
     std::cout << "Dev type read is " << dev_type << "\n";
+    */
 
 }
 

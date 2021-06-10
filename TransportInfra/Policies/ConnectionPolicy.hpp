@@ -19,6 +19,21 @@
 namespace infra
 {
 
+template <typename Host, typename Device>
+struct DummyConnectionPolicy : public crtp_base<DummyConnectionPolicy<Host, Device>, Host>
+{
+    bool connect(...)
+    {
+        std::cout << "DummyConnectionPolicy::connect()\n";
+        return true;
+    }
+
+    bool disconnect() {
+        std::cout << "DummyConnectionPolicy::disconnect()\n";
+        return this->asDerived().close();
+    }
+};
+
 template<typename Host, typename Device,
          typename = void>
 class ConnectionPolicy{};

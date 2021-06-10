@@ -8,6 +8,7 @@
 #include "Devices/GenericDeviceAccess.hpp"
 #include "Devices/DeviceDefinitions.h"
 #include "Policies/ConnectionStateChangeAdvertiser.hpp"
+#include "Traits/storage_traits.hpp"
 #include "Observable.hpp"
 #include "BaseMemberPair.hpp"
 
@@ -34,6 +35,14 @@ public:
     virtual bool disconnect() = 0;
     virtual bool connect(std::string_view addr, bool non_blocking) = 0;
     //virtual ssize_t send(std::string_view data) = 0;
+};
+
+class IServerTransportEndpoint : public ITransportEndpoint
+{
+public:
+    virtual bool bind(std::string_view addr, bool reusable) = 0;
+    virtual bool listen(int backlog) = 0;
+    virtual bool accept(bool non_blocking) = 0;
 };
 
 template<typename T, typename AbstractInterface = ITransportEndpoint>
@@ -109,9 +118,30 @@ public:
     }
     */
 };
-/*
- * TODO Move The Listener subscribe/handle event logic to a separate policy
- */
+
+template<typename T>
+class ServerDynamicTransportEndpointWrapper : public DynamicTransportEndpointWrapper<T, IServerTransportEndpoint>
+{
+    ServerDynamicTransportEndpointWrapper(std::unique_ptr<T> p_endpoint) :
+        DynamicTransportEndpointWrapper<T, IServerTransportEndpoint>(std::move(p_endpoint))
+    {}
+
+    bool bind(std::string_view addr, bool reusable) override{
+        typename T::DeviceAddress dev_addr;
+        if (dev_addr.fromString(addr)){
+            return this->m_pEndpoint->bind(dev_addr, reusable);
+        }
+        return false;
+    }
+
+    bool listen(int backlog) override{
+        return this->m_pEndpoint->listen(backlog);
+    }
+
+    bool accept(bool non_blocking) override{
+        return this->m_pEndpoint->accept(non_blocking);
+    }
+};
 
 template <typename AssembledDevice,
           template<typename...> typename EventHandlingPolicy,
@@ -122,13 +152,13 @@ template <typename AssembledDevice,
           typename StateChangeCallbackDispatcher = SerialCallbackDispatcher,
           typename Enable = void>
 class TransportEndpoint : public EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, Listener>,
-                          public DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>,
-                          public ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>,
+                          public DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice, Storage>,
+                          public ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice, Storage>,
                           public ConnectionStateAdvertiser<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, StateChangeCallbackDispatcher>
 {
     using EventHandlingBase = EventHandlingPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, Listener>;
-    using DispatcherBase = DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy,  Listener>, AssembledDevice>;
-    using ClientServerLogicBase = ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice>;
+    using DispatcherBase = DispatcherPolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy,  Listener>, AssembledDevice, Storage>;
+    using ClientServerLogicBase = ClientServerRolePolicy<TransportEndpoint<AssembledDevice, EventHandlingPolicy, DispatcherPolicy, ClientServerRolePolicy, Listener>, AssembledDevice, Storage>;
 
     friend ClientServerLogicBase;
     friend EventHandlingBase;
@@ -139,6 +169,12 @@ public:
     using SubscriberID = typename Listener::SubscriberID;
 
 public:
+    explicit TransportEndpoint(EConnectionState initial_state, Listener & listener) :
+        EventHandlingBase(listener)
+    {
+        m_optional_storage_and_state.member() = utils::to_underlying(initial_state);
+    }
+
     explicit TransportEndpoint(Listener & listener) :
         EventHandlingBase(listener)
     {
@@ -159,7 +195,7 @@ public:
     bool onDisconnection()
     {
         std::cout << "TransportEndpoint::onDisconnection()\n";
-        //DispatcherBase::ProcessDisconnection();
+        DispatcherBase::ProcessDisconnection();
         return ClientServerLogicBase::ProcessDisconnectionEvent();
     }
 
@@ -182,10 +218,9 @@ public:
     }
 
 public:
-    inline Device & getDevice() { return m_device; }
     inline const Device & getDevice() const { return m_device; }
+    inline Device & getDevice() { return m_device; }
     inline const Observable<std::size_t> & getConnectionState() const { return m_optional_storage_and_state.member(); }
-    inline Observable<std::size_t> & getConnectionState() { return m_optional_storage_and_state.member(); }
 
 protected:
     void setState(EConnectionState state)
@@ -200,6 +235,27 @@ protected:
     }
 
     inline auto getHandle() const { return GenericDeviceAccess::getHandle(m_device); }
+    inline Listener & getListener() { return EventHandlingBase::getListener(); }
+    inline Storage & getStorage() { return m_optional_storage_and_state.base(); }
+    inline const Storage & getStorage() const { return m_optional_storage_and_state.base(); }
+
+    template<typename S, typename = std::enable_if_t<std::is_same_v<S, Storage> && traits::is_endpoint_storage_v<S>>>
+    void onClientConnected(const typename S::key_t & key)
+    {
+        DispatcherBase::ProcessClientConnected(key);
+    }
+
+    template<typename S, typename = std::enable_if_t<std::is_same_v<S, Storage> && traits::is_endpoint_storage_v<S>>>
+    void onClientDisconnected(const typename S::key_t & key)
+    {
+        DispatcherBase::ProcessClientDisconnected(key);
+    }
+
+    template<typename S, typename = std::enable_if_t<std::is_same_v<S, Storage> && traits::is_endpoint_storage_v<S>>>
+    void onClientInputAvailable(const typename S::key_t & key, std::string_view data)
+    {
+        DispatcherBase::ProcessClientInput(key, data);
+    }
 
 private:
     BaseMemberPair<Storage, Observable<std::size_t>> m_optional_storage_and_state;
@@ -212,4 +268,3 @@ private:
 
 } //infra
 #endif
-

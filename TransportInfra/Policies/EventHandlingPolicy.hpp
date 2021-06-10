@@ -102,6 +102,7 @@ protected:
         m_optional_handle_ref.reset();
     }
 
+    Listener & getListener() { return m_listener; }
     Derived & asDerived() { return static_cast<Derived &>(*this); }
     const Derived & asDerived() const { return static_cast<const Derived &>(*this); }
 

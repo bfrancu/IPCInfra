@@ -97,6 +97,43 @@ struct are_related<T, U> : std::is_base_of<T, std::decay_t<U>>
 template<typename T, typename... Ts>
 constexpr bool are_related_v = are_related<T, Ts...>::value;
 
+template<typename T,
+         template <typename...> typename... Preds>
+struct apply_predicates
+{
+    static constexpr bool value = (Preds<T>::value && ...);
+};
+
+template<typename T>
+struct apply_predicates<T>
+{
+    static constexpr bool value = true;
+};
+
+template<typename T,
+         template <typename...> typename... Preds>
+static constexpr bool apply_predicates_v = apply_predicates<T, Preds...>::value;
+
+/*
+template<typename T,
+         template <typename... > typename Pred,
+         template <typename... > typename... Preds>
+struct apply_predicates<T, Pred, Preds...>
+{
+    template<typename U,
+             typename = select_if_t<Pred<U>, std::true_type, std::false_type>>
+    struct apply_predicates_helper;
+
+    template<
+};
+
+template<typename T>
+struct apply_predicates<T>
+{
+    static constexpr bool value = true;
+};
+*/
+
 }//traits
 
 } //infra

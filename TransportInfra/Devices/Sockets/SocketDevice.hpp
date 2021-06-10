@@ -9,6 +9,7 @@
 #include "Observable.hpp"
 #include "Traits/socket_traits.hpp"
 #include "SocketDeviceAccess.hpp"
+#include "Devices/AccessibleHandleBase.h"
 
 //#include "Infra/sys_call_err_eval.hpp"
 
@@ -18,11 +19,12 @@ namespace infra
 {
 
 template<typename ResourceHandler, typename SocketAddress>
-class SocketDeviceBase
+class SocketDeviceBase : public AccessibleHandleBase<SocketDeviceBase<ResourceHandler, SocketAddress>>
 {
     friend class SocketDeviceAccess;
     friend class GenericDeviceAccess;
     //friend class PlatformApiProxy;
+    friend class AccessibleHandleBase<SocketDeviceBase<ResourceHandler, SocketAddress>>;
 
 public:
     using handle_type = typename handler_traits<ResourceHandler>::handle_type;

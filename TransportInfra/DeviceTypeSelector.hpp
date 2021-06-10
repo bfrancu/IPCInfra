@@ -131,48 +131,48 @@ struct RuntimeTransportTraitsResolution<default_device_set, void>
     }
 };
 
-class ConnectorAdapter
+class ConnectionInitializerAdapter
 {
 public:
-    template<typename ClientTraits, std::size_t DeviceTag, typename Connector, typename... Args>
+    template<typename ClientTraits, std::size_t DeviceTag, typename ConnectionInitializer, typename... Args>
     static constexpr bool connect(const infra::config::ConfigurationBook & book, std::string_view section,
-                                  Connector & connector, Args&&... args)
+                                  ConnectionInitializer & connection_initializer, Args&&... args)
     {
-        std::cout << "ConnectorAdapter::connect<DeviceTag>()\n";
+        std::cout << "ConnectionInitializerAdapter::connect<DeviceTag>()\n";
         using transport_traits = transport_traits<DeviceTag, ClientTraits>;
-        return forwardConnect<transport_traits>(book, section, connector, std::forward<Args>(args)...);
+        return forwardConnect<transport_traits>(book, section, connection_initializer, std::forward<Args>(args)...);
     }
 
-    template<typename ClientTraits, typename Connector, typename... Args>
+    template<typename ClientTraits, typename ConnectionInitializer, typename... Args>
     static bool connect(std::size_t device_tag, const infra::config::ConfigurationBook & book,
-                        std::string_view section, Connector & connector, Args&&... args)
+                        std::string_view section, ConnectionInitializer & connection_initializer, Args&&... args)
     {
-        std::cout << "ConnectorAdapter::connect(DeviceTag)\n";
+        std::cout << "ConnectionInitializerAdapter::connect(DeviceTag)\n";
         using device_set_t = typename ClientTraits::DeviceSet;
         auto callable = [] (auto traits_pack, auto&&... fwargs) {
             return forwardConnect(traits_pack, std::forward<decltype(fwargs)>(fwargs)...);
         };
         return RuntimeTransportTraitsResolution<device_set_t>::template
-            forward<ClientTraits>(device_tag, callable, book, section, connector, std::forward<Args>(args)...);
+            forward<ClientTraits>(device_tag, callable, book, section, connection_initializer, std::forward<Args>(args)...);
     }
 
 private:
-   template<typename TransportTraits, typename Connector, typename... Args>
+   template<typename TransportTraits, typename ConnectionInitializer, typename... Args>
    static constexpr bool forwardConnect(const infra::config::ConfigurationBook & book, std::string_view section,
-                                        Connector & connector, Args&&... args)
+                                        ConnectionInitializer & connection_initializer, Args&&... args)
    {
        typename TransportTraits::device_address_t dev_addr = DeviceAddressFactory<TransportTraits::device_tag>::createAddress(book, section);
-       std::cout << "ConnectorAdapter::forwardConnect<TransportTraits>() device address: " << dev_addr << "\n";
+       std::cout << "ConnectionInitializerAdapter::forwardConnect<TransportTraits>() device address: " << dev_addr << "\n";
        if(dev_addr.empty()) return false;
 
-       return connector.template setup<TransportTraits>(dev_addr, std::forward<Args>(args)...);
+       return connection_initializer.template setup<TransportTraits>(dev_addr, std::forward<Args>(args)...);
    }
    
-   template<typename TransportTraits, typename Connector, typename... Args>
+   template<typename TransportTraits, typename ConnectionInitializer, typename... Args>
    static constexpr bool forwardConnect(meta::tl::pack<TransportTraits>, const infra::config::ConfigurationBook & book, 
-                                        std::string_view section, Connector & connector, Args&&... args)
+                                        std::string_view section, ConnectionInitializer & connection_initializer, Args&&... args)
    {
-       return forwardConnect<TransportTraits>(book, section, connector, std::forward<Args>(args)...);
+       return forwardConnect<TransportTraits>(book, section, connection_initializer, std::forward<Args>(args)...);
    }
 };
 

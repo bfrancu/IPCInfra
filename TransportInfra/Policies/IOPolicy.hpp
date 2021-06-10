@@ -26,7 +26,7 @@ template<typename Host, typename Device>
 class GenericIOPolicy<Host, Device, std::enable_if_t<IsUnixPlatformSocketDeviceT<Device>::value>> 
         : public StreamIOPolicy<Host, Device>
 {
-     using handle_type = typename device_traits<Device>::handle_type;
+     //using handle_type = typename device_traits<Device>::handle_type;
      using Base = StreamIOPolicy<Host, Device>;
 public:
      ssize_t read(std::string & result){
@@ -51,7 +51,7 @@ class GenericIOPolicy<Host, Device, std::enable_if_t<HasUnixHandleTypeT<Device>:
                                                      !IsUnixPlatformSocketDeviceT<Device>::value>>
         : public crtp_base<GenericIOPolicy<Host, Device>, Host>
 {
-     using handle_type = typename device_traits<Device>::handle_type;
+     //using handle_type = typename device_traits<Device>::handle_type;
 
 public:
     bool init() {

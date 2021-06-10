@@ -43,22 +43,20 @@ struct Exporter<meta::ttl::template_typelist<Policies...>>
         : public AccessContextHierarchy<ProxyDevice<typename Endpoint::Device>, Policies...>
 
     {
-        using Device = typename Endpoint::Device;
-        using ProxyDeviceBase = ProxyDevice<Device>;
-        using handle_type = typename Device::handle_type;
+        using ProxyDeviceBase = ProxyDevice<typename Endpoint::Device>;
 
     public:
         bool init()
         {
             //std::cout << "ExporterPolicy::init() id: " << id << "\n";
-            Device & endpoint_device = (static_cast<Host&>(*this)).getDevice();
+            auto & endpoint_device = (static_cast<Host&>(*this)).getDevice();
             (static_cast<ProxyDeviceBase&>(*this).setBaseReference(endpoint_device));
             //m_proxy_dev.setBaseReference(endpoint_device);
             return true;
         }
 
     protected:
-        handle_type getHandle(){
+        decltype(auto) getHandle(){
             //std::cout << "ExporterPolicy::getHandle() id: " << id << "\n";
             //return m_proxy_dev.getHandle();
             static_cast<const ProxyDeviceBase&>(*this).getHandle();

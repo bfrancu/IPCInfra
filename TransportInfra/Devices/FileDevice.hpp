@@ -7,8 +7,8 @@
 
 #include "FileIODefinitions.h"
 #include "LinuxUtils/LinuxIOUtilities.h"
-
 #include "Traits/device_traits.hpp"
+#include "AccessibleHandleBase.h"
 
 namespace infra
 {
@@ -24,9 +24,11 @@ class FileDevice<ResourceHandler, std::enable_if_t<std::conjunction_v<std::is_sa
 
 
 template<typename ResourceHandler>
-class FileDevice<ResourceHandler, std::enable_if_t<HasUnixHandleTypeT<ResourceHandler>::value>>
+    class FileDevice<ResourceHandler, std::enable_if_t<HasUnixHandleTypeT<ResourceHandler>::value>>
+    : public AccessibleHandleBase<FileDevice<ResourceHandler>>
 {
     friend class GenericDeviceAccess;
+    friend class AccessibleHandleBase<FileDevice<ResourceHandler>>;
 public:
     using handle_type = typename handler_traits<ResourceHandler>::handle_type;
     using platform    = typename handler_traits<ResourceHandler>::platform;

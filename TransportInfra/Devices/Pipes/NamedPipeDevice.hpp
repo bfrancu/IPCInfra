@@ -13,6 +13,7 @@
 #include "LinuxUtils/LinuxIOUtilities.h"
 #include "NamedPipeAddress.h"
 #include "NamedPipeDeviceAccess.hpp"
+#include "Devices/AccessibleHandleBase.h"
 
 namespace infra
 {
@@ -69,9 +70,11 @@ public:
 
 template<typename ResourceHandler, typename Address>
 class NamedPipeDevice<ResourceHandler, Address, std::enable_if_t<HasUnixHandleTypeT<ResourceHandler>::value>>
+    : public AccessibleHandleBase<NamedPipeDevice<ResourceHandler, Address>>
 {
     friend class NamedPipeDeviceAccess;
     friend class GenericDeviceAccess;
+    friend class AccessibleHandleBase<NamedPipeDevice<ResourceHandler, Address>>;
 public:
     using handle_type  = typename handler_traits<ResourceHandler>::handle_type;
     using platform    = typename handler_traits<ResourceHandler>::platform;
