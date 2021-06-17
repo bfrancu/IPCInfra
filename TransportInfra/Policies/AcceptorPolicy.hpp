@@ -29,11 +29,11 @@ class SocketAcceptorBasePolicy<Host, traits::UnixPlatformSocketDevice<SocketDevi
     public crtp_base<SocketAcceptorBasePolicy<Host, SocketDevice>, Host>
 {
 protected:
-    using handle_type  = typename device_traits<SocketDevice>::handle_type;
-    using address_type = typename socket_traits<SocketDevice>::address_type;
+    using handle_t = typename device_traits<SocketDevice>::handle_type;
+    using address_t = typename socket_traits<SocketDevice>::address_type;
 
 protected:
-    bool bind(const address_type & sock_addr, bool reusable){
+    bool bind(const address_t& sock_addr, bool reusable){
         if (io::ESocketState::E_STATE_AVAILABLE != this->asDerived().getState()) return false;
 
         setReusableAddressOpt(reusable);
@@ -102,10 +102,10 @@ protected:
         int flags{0};
         if (non_blocking) flags |= SOCK_NONBLOCK;
 
-        handle_type peer_sock_handle = ::accept4(SocketDeviceAccess::getHandle(this->asDerived()), &remote_addr, &remote_addr_len, flags);
+        handle_t peer_sock_handle = ::accept4(SocketDeviceAccess::getHandle(this->asDerived()), &remote_addr, &remote_addr_len, flags);
 
         if (handler_traits<SocketDevice>::defaultValue() != peer_sock_handle){
-             address_type peer_sock_addr;
+             address_t peer_sock_addr;
              peer_sock_addr.setAddress(remote_addr);
              peer_sock.emplace();
 
@@ -130,13 +130,13 @@ class AcceptorPolicy<Host, SocketDevice, std::enable_if_t<IsUnixPlatformSocketDe
 {
 protected:
     using Base = SocketAcceptorBasePolicy<Host, SocketDevice>;
-    using handle_type = typename Base::handle_type;
-    using address_type = typename Base::address_type;
+    //using handle_t = typename Base::handle_type;
+    using address_t = typename Base::address_t;
 
 public:
-    bool bind(const address_type & sock_addr, bool reusable = true){ return Base::bind(sock_addr, reusable); }
+    bool bind(const address_t& sock_addr, bool reusable = true){ return Base::bind(sock_addr, reusable); }
     bool listen(int backlog = 50){ return Base::listen(backlog); }
-    SocketDevice accept(bool non_blocking = false)  { return Base::accept(non_blocking); }
+    decltype(auto) accept(bool non_blocking = false)  { return Base::accept(non_blocking); }
 
     inline bool isBinded() const { return Base::isBinded(); }
     inline bool isListening() const{ return Base::isListening(); }
@@ -153,13 +153,13 @@ class AcceptorPolicy<Host, SocketDevice, std::enable_if_t<IsUnixSocketDeviceT<So
 {
 protected:
     using Base = SocketAcceptorBasePolicy<Host, SocketDevice>;
-    using handle_type = typename Base::handle_type;
-    using address_type = typename Base::address_type;
+    //using handle_t = typename Base::handle_type;
+    using address_t = typename Base::address_t;
 
 public:
     using test_type = int;
 
-    bool bind(const address_type & sock_addr, bool reusable = true){ 
+    bool bind(const address_t & sock_addr, bool reusable = true){
         sockaddr_un tmp_sockaddr;
         memset(&tmp_sockaddr, 0, sizeof(sockaddr_un));
         sock_addr.getAddress(tmp_sockaddr);
@@ -204,13 +204,16 @@ class AcceptorPolicy<Host, Device, std::enable_if_t<IsNamedPipeDeviceT<Device>::
                                                     std::negation_v<IsSocketDeviceT<Device>>>>
          : public crtp_base<AcceptorPolicy<Host, Device>, Host>
 {
-    using handle_type  = typename device_traits<Device>::handle_type;
-    using address_type = typename fifo_traits<Device>::address_type;
+    //using handle_type  = typename device_traits<Device>::handle_type;
+    using address_t = typename fifo_traits<Device>::address_type;
 
 public:
-    bool bind(const address_type & addr) { return this->asDerived().setAddress(addr); }
+    bool bind(const address_t& addr, bool = true) { return this->asDerived().setAddress(addr); }
     bool listen(int) { return true; }
-    bool accept(bool non_blocking = false) { return this->asDerived().open(non_blocking); }
+    std::optional<Device> accept(bool non_blocking = false) {
+        this->asDerived().open(non_blocking);
+        return {};
+    }
 
 protected:
     ~AcceptorPolicy() = default;

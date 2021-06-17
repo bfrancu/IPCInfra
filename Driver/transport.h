@@ -7,6 +7,7 @@ namespace transport
 {
 
 void testConnectorClient();
+void testAcceptorClient();
 void transport_main();
 
 }//transport

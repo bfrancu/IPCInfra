@@ -132,7 +132,8 @@ int main()
     //testSharedLookupTable();
     //testReactor();
     //infra::meta::dispatch::dispatch_main();
-    transport::testConnectorClient();
+    //transport::testConnectorClient();
+    transport::testAcceptorClient();
     //testFileInfo();
     //testSocketDevices();
     //testTransportMain();

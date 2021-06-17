@@ -35,7 +35,7 @@ class SocketDeviceAccess
     static void setState(SocketDevice & device, State state){ device.setState(state); }
 
     template<typename SocketDevice, typename SocketAddress>
-    static void setWorkingAddress(const SocketDevice & device, SocketAddress && sock_addr){
+    static void setWorkingAddress(SocketDevice & device, SocketAddress && sock_addr){
         device.setWorkingAddress(std::forward<SocketAddress>(sock_addr)); }
 
     template<typename SocketDevice>

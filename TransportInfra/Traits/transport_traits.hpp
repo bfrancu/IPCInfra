@@ -141,7 +141,7 @@ namespace infra
                                                                         typename peer_endpoint_policies_t::transport_policies_t>;
 
         using endpoint_storage_key_t = def::EndpointStorageKey_or_default_t<ClientTraits, handle_t>;
-        using endpoint_storage_policy_t = typename ClientTraits::EndpointStorage;
+        using endpoint_storage_policy_t = typename ClientTraits::EndpointStoragePolicy;
 
         template<typename Endpoint, typename Key, typename EndpointStoragePolicy>
         struct apply_types_to_storage_policy

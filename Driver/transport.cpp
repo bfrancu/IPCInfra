@@ -29,6 +29,7 @@
 #include "Reactor/Reactor.hpp"
 #include "Reactor/DeviceTestEventHandler.h"
 #include "ConnectorClient.h"
+#include "AcceptorClient.h"
 #include "Host.hpp"
 #include "TransportDefinitions.h"
 #include "template_typelist.hpp"
@@ -93,6 +94,33 @@ void testConnectorClient()
     ConnectorClient<default_client_traits> client{connector, config_file};
     client.init(config_section);
     for (;;) {}
+}
+
+void testAcceptorClient()
+{
+    using namespace infra;
+    using handleT = int;
+    using ReactorT = Reactor<handleT, demux::EpollDemultiplexer<handleT>>;
+    ReactorT reactor;
+    Acceptor<ReactorT> acceptor(reactor);
+    std::string config_file{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
+    std::string config_section{"CONNECTION_DETAILS"};
+    AcceptorClient<default_server_traits> server{acceptor, config_file};
+    constexpr auto dev_tag = write_fifo_tag;
+    using ServerEndpointStorageT = typename transport_traits<dev_tag, default_server_traits>::endpoint_storage_t;
+    using DeviceT = typename transport_traits<dev_tag, default_server_traits>::device_host_t;
+    using EndpointT = typename transport_traits<dev_tag, default_server_traits>::transport_endpoint_t;
+    using DeviceAddressT = typename transport_traits<dev_tag, default_server_traits>::device_address_t;
+    //using UnixSocketWithPolicies = PackHostT<defaults::ReadFifoDevice, meta::ttl::template_typelist<AcceptorPolicy>>;
+
+    EndpointT endpoint(reactor);
+
+    static_assert(IsPassiveConnectableDevice<DeviceT>::value);
+    static_assert (traits::is_endpoint_storage_v<ServerEndpointStorageT>);
+    DeviceT dev;
+    dev.bind(DeviceAddressT{}, true);
+
+    server.init(config_section);
 }
 
 DEFINE_HAS_MEMBER(init);

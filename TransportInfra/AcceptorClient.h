@@ -97,7 +97,8 @@ public:
                 std::cout << "Empty static endpoint\n";
                 return;
             }
-            m_p_static_transport_endpoint.reset(reinterpret_cast<StaticTransportEndpoint*>(p_endpoint->releaseInternalEndpoint()));
+
+            m_p_static_transport_endpoint.reset(reinterpret_cast<StaticServerTransportEndpoint*>(p_endpoint->releaseInternalEndpoint()));
             m_p_static_transport_endpoint->registerClientInputCallback([](const ClientKey & key, std::string_view content){
                         std::cout << "[static] received from client key: " << key << "; content: " << content << "\n";
                     });
@@ -112,12 +113,10 @@ public:
         };
 
         std::cout << "\nSetting up dynamic server endpoint\n";
-        ConnectionInitializerAdapter::connect<server_traits>(m_device_type, book, section, m_acceptor, dynamic_completion_cb);
+        //ConnectionInitializerAdapter::connect<server_traits>(m_device_type, book, section, m_acceptor, dynamic_completion_cb);
         std::cout << "\nSetting up static server endpoint\n";
         ConnectionInitializerAdapter::connect<server_traits, static_device_tag>(book, section, m_acceptor, static_completion_cb);
     }
-
-    
 
 private:
     std::string config_file;

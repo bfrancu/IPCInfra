@@ -24,7 +24,8 @@ struct BasicDescriptorKeyGenerator
 
 template<typename Derived, typename Device, typename Storage,
          typename ClientKeyGenerator = BasicDescriptorKeyGenerator, typename = void>
-class ServerCallbackPolicy;
+class ServerCallbackPolicy
+{};
 
 template<typename Derived, typename Device, typename Storage, typename ClientKeyGenerator>
 class ServerCallbackPolicy<Derived, Device, Storage, ClientKeyGenerator,
@@ -80,6 +81,7 @@ public:
    {
    }
 
+    ~ServerCallbackPolicy() = default;
 
 protected:
    std::optional<RawDevice> acceptImpl(bool non_blocking)
@@ -150,6 +152,7 @@ protected:
    }
 
    bool ProcessDisconnectionEvent() { return true; }
+   bool ProcessErrorEvent() { return true; }
 
    void ProcessClientInput(const ClientKey & key, std::string_view data)
    {
@@ -166,7 +169,6 @@ protected:
    }
 
 protected:
-    ~ServerCallbackPolicy() = default;
 
     Derived & asDerived() { return static_cast<Derived &>(*this); }
     const Derived & asDerived() const { return static_cast<const Derived &>(*this); }
