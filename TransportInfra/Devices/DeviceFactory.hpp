@@ -40,6 +40,7 @@ struct Device2Type
     using device_type = EmptyDevice<ResourceHandler>;
 };
 
+
 template<>
 struct Device2Type<static_cast<std::size_t>(EDeviceType::E_IPV4_TCP_SOCKET_DEVICE)>
 {
@@ -94,6 +95,60 @@ struct Device2Type<static_cast<std::size_t>(EDeviceType::E_WRITING_FIFO_DEVICE)>
 {
     template<typename ResourceHandler>
     using device_type = WritingNamedPipeDevice<ResourceHandler>;
+};
+
+template<typename Device, typename = void>
+struct Type2DeviceTag 
+{ 
+    static constexpr auto value{undefined_device_tag}; 
+};
+
+template<typename ResourceHandler>
+struct Type2DeviceTag<SocketDevice<ResourceHandler, IPV4InetSocketAddress, ipv4_domain, stream_socket>>
+{
+    static constexpr auto value{ipv4_strm_tag};
+};
+
+template<typename ResourceHandler>
+struct Type2DeviceTag<SocketDevice<ResourceHandler, IPV4InetSocketAddress, ipv4_domain, datagram_socket>>
+{
+    static constexpr auto value{ipv4_dgram_tag};
+};
+
+template<typename ResourceHandler>
+struct Type2DeviceTag<SocketDevice<ResourceHandler, IPV6InetSocketAddress, ipv6_domain, stream_socket>>
+{
+    static constexpr auto value{ipv6_strm_tag};
+};
+
+template<typename ResourceHandler>
+struct Type2DeviceTag<SocketDevice<ResourceHandler, IPV6InetSocketAddress, ipv6_domain, datagram_socket>>
+{
+    static constexpr auto value{ipv6_dgram_tag};
+};
+
+template<typename ResourceHandler>
+struct Type2DeviceTag<SocketDevice<ResourceHandler, unx::UnixSocketAddress, unix_domain, stream_socket>>
+{
+    static constexpr auto value{unx_strm_tag};
+};
+
+template<typename ResourceHandler>
+struct Type2DeviceTag<SocketDevice<ResourceHandler, unx::UnixSocketAddress, unix_domain, datagram_socket>>
+{
+    static constexpr auto value{unx_dgram_tag};
+};
+
+template<typename ResourceHandler>
+struct Type2DeviceTag<ReadingNamedPipeDevice<ResourceHandler>>
+{
+    static constexpr auto value{read_fifo_tag};
+};
+
+template<typename ResourceHandler>
+struct Type2DeviceTag<WritingNamedPipeDevice<ResourceHandler>>
+{
+    static constexpr auto value{write_fifo_tag};
 };
 
 template<std::size_t tag, typename Enable = void>

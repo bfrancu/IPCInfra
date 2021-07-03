@@ -34,6 +34,7 @@ protected:
 
 protected:
     bool bind(const address_t& sock_addr, bool reusable){
+        std::cout << "SocketAcceptorBasePolicy::bind()\n";
         if (io::ESocketState::E_STATE_AVAILABLE != this->asDerived().getState()) return false;
 
         setReusableAddressOpt(reusable);
@@ -46,6 +47,7 @@ protected:
                                static_cast<socklen_t>(sock_addr.getAddressLength())))
         {
             SocketDeviceAccess::setState(this->asDerived(), io::ESocketState::E_STATE_BINDED);
+            std::cout << "SocketAcceptorBasePolicy::bind() Successfully binded\n";
             return true;
         }
 
@@ -53,12 +55,14 @@ protected:
     }
 
     bool listen(int backlog){
+        std::cout << "SocketAcceptorBasePolicy::listen()\n";
         if (io::ESocketState::E_STATE_BINDED != this->asDerived().getState()) return false;
 
         if (sys_call_zero_eval(::listen,
                                SocketDeviceAccess::getHandle(this->asDerived()),
                                backlog))
         {
+            std::cout << "SocketAcceptorBasePolicy::listen() listening for new connections...\n";
             SocketDeviceAccess::setState(this->asDerived(), io::ESocketState::E_STATE_LISTENING);
             return true;
         }
@@ -93,6 +97,7 @@ protected:
     }
 
     std::optional<SocketDevice> accept(bool non_blocking) {
+        std::cout << "SocketAcceptorBasePolicy::accept()\n";
         std::optional<SocketDevice> peer_sock;
         if (io::ESocketState::E_STATE_LISTENING != this->asDerived().getState()) return peer_sock;
 
@@ -103,6 +108,7 @@ protected:
         if (non_blocking) flags |= SOCK_NONBLOCK;
 
         handle_t peer_sock_handle = ::accept4(SocketDeviceAccess::getHandle(this->asDerived()), &remote_addr, &remote_addr_len, flags);
+        std::cout << "SocketAcceptorBasePolicy::accept() accepted handle: " << peer_sock_handle << "\n";
 
         if (handler_traits<SocketDevice>::defaultValue() != peer_sock_handle){
              address_t peer_sock_addr;
@@ -112,6 +118,7 @@ protected:
              SocketDeviceAccess::setWorkingAddress(peer_sock.value(), std::move(peer_sock_addr));
              SocketDeviceAccess::setHandle(peer_sock.value(), peer_sock_handle);
              SocketDeviceAccess::setState(peer_sock.value(), io::ESocketState::E_STATE_CONNECTED);
+             std::cout << "SocketAcceptorBasePolicy::accept() new connection accepted\n";
         }
         else{
             SocketDeviceAccess::setState(peer_sock.value(), io::ESocketState::E_STATE_ERROR);
@@ -204,16 +211,21 @@ class AcceptorPolicy<Host, Device, std::enable_if_t<IsNamedPipeDeviceT<Device>::
                                                     std::negation_v<IsSocketDeviceT<Device>>>>
          : public crtp_base<AcceptorPolicy<Host, Device>, Host>
 {
-    //using handle_type  = typename device_traits<Device>::handle_type;
     using address_t = typename fifo_traits<Device>::address_type;
 
 public:
-    bool bind(const address_t& addr, bool = true) { return this->asDerived().setAddress(addr); }
-    bool listen(int) { return true; }
-    std::optional<Device> accept(bool non_blocking = false) {
-        this->asDerived().open(non_blocking);
-        return {};
+    bool bind(const address_t& addr, bool non_blocking = true)
+    {
+        if(this->asDerived().setAddress(addr))
+        {
+            this->asDerived().open(non_blocking);
+            return true;
+        }
+        return false;
     }
+
+    bool listen(int) { return true; }
+    std::optional<Device> accept(bool) { return {}; }
 
 protected:
     ~AcceptorPolicy() = default;

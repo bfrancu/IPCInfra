@@ -2,6 +2,8 @@
 #define ACCEPTORCLIENT_H
 #include "Acceptor.hpp"
 
+#include "non_typelist.hpp"
+
 #include "Policies/EndpointStorage.hpp"
 #include "Policies/ServerCallbackPolicy.hpp"
 #include "Policies/AcceptorPolicy.hpp"
@@ -15,13 +17,21 @@
 namespace infra
 {
 
+template <std::size_t... device_tags>
+struct tag_holder {};
+
+using t = typename generate_endpoint_typelist<default_client_traits, tag_holder<ipv4_strm_tag>>::type;
+static_assert (std::is_same_v<t, meta::tl::typelist<typename transport_traits<ipv4_strm_tag,
+                                                                              default_client_traits>::transport_endpoint_t>>);
+
 struct default_server_traits
 {
     using PeerTraits = default_client_traits;
 
+    //using DeviceSet = meta::ntl::non_typelist<ipv4_strm_tag, read_fifo_tag>;
     using DeviceSet = default_device_set;
     using ResourceHandler = UnixResourceHandler;
-    using DevicePolicies = meta::ttl::template_typelist<AcceptorPolicy>;
+    using DevicePolicies = meta::ttl::template_typelist<AcceptorPolicy, GenericIOPolicy>;
     using ExportPolicies = meta::ttl::template_typelist<>;
 
     using TransportPolicies = meta::ttl::template_typelist<>;
@@ -78,8 +88,9 @@ public:
                 return;
             }
 
-            m_p_dynamic_transport_endpoint->registerClientInputCallback([](const ClientKey & key, std::string_view content){
+            m_p_dynamic_transport_endpoint->registerClientInputCallback([this](const ClientKey & key, std::string_view content){
                         std::cout << "[dynamic] received from client key: " << key << "; content: " << content << "\n";
+                        m_p_dynamic_transport_endpoint->send(key, "roger roger\n");
                     });
 
             m_p_dynamic_transport_endpoint->registerClientConnectionCallback([](const ClientKey & key){
@@ -112,7 +123,7 @@ public:
                     });
         };
 
-        std::cout << "\nSetting up dynamic server endpoint\n";
+        //std::cout << "\nSetting up dynamic server endpoint\n";
         //ConnectionInitializerAdapter::connect<server_traits>(m_device_type, book, section, m_acceptor, dynamic_completion_cb);
         std::cout << "\nSetting up static server endpoint\n";
         ConnectionInitializerAdapter::connect<server_traits, static_device_tag>(book, section, m_acceptor, static_completion_cb);

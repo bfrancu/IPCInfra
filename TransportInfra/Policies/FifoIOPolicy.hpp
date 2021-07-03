@@ -12,7 +12,6 @@ class FifoIOPolicy{};
 
 template<typename Host, typename Device>
 class FifoIOPolicy<Host, traits::UnixNamedPipeDevice<Device>> : public crtp_base<FifoIOPolicy<Host, Device>, Host>
-
 {
     using io_profile = typename Device::io_profile;
 

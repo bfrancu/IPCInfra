@@ -38,6 +38,7 @@ HEADERS += \
     UtilitiesInfra_global.h \
     crtp_base.hpp \
     enum_flag.h \
+    non_typelist.hpp \
     randomizer.hpp \
     shared_lookup_table.hpp \
     runtime_dispatcher.hpp \

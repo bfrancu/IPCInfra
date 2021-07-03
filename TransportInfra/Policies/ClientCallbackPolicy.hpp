@@ -87,7 +87,7 @@ protected:
     }
 
     template<typename Dev, typename... Args,
-             typename, typename = decltype(std::declval<std::decay_t<Dev>>().write(std::declval<Args&&>()...))>
+             typename = void, typename = decltype(std::declval<std::decay_t<Dev>>().write(std::declval<Args&&>()...))>
     std::enable_if_t<(IsWritableDeviceT<Dev>::value && !IsSendableDeviceT<Dev>::value), ssize_t> 
     sendImpl(Dev & device, Args&&... args)
     {

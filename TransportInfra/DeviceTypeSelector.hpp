@@ -2,6 +2,7 @@
 #define DEVICE_TYPE_SELECTOR_HPP
 #include "default_traits.hpp"
 #include "typelist.hpp"
+#include "non_typelist.hpp"
 #include "Devices/DeviceAddressFactory.hpp"
 #include "Connector.hpp"
 #include "Traits/transport_traits.hpp"
@@ -74,6 +75,41 @@ public:
 
 template<typename DeviceSet, typename Enable = void>
 struct RuntimeTransportTraitsResolution;
+
+template<template<std::size_t...> typename DeviceSet>
+struct RuntimeTransportTraitsResolution<DeviceSet<>>;
+
+template<std::size_t... tags>
+struct RuntimeTransportTraitsResolution<meta::ntl::non_typelist<tags...>>
+{
+    using static_tags_list = meta::ntl::non_typelist<tags...>;
+
+    template<std::size_t TagIndex, typename ClientTraits, typename Callable, typename... Args>
+    static decltype(auto) forward_helper(std::size_t device_tag, Callable && callable, Args&&... args)
+    {
+        using namespace meta;
+        constexpr std::size_t static_tag = ntl::nth_element_v<static_tags_list, TagIndex>;
+
+        using transport_traits = transport_traits<static_tag, ClientTraits>;
+        using return_t = decltype(std::declval<Callable>()(std::declval<meta::tl::pack<transport_traits>>(), std::declval<Args&&>()...));
+
+        if (static_tag == device_tag){
+            return callable(meta::tl::pack<transport_traits>{}, std::forward<Args>(args)...);
+        }
+
+        if constexpr (TagIndex < ntl::size_v<static_tags_list> - 1){
+            return forward_helper<TagIndex+1, ClientTraits>(device_tag, std::forward<Callable>(callable), std::forward<Args>(args)...);
+        }
+
+        return static_cast<return_t>(meta::traits::default_value<return_t>::value);
+    }
+
+    template<typename ClientTraits, typename Callable, typename... Args>
+    static decltype(auto) forward(std::size_t device_tag, Callable && callable, Args&&... args)
+    {
+        return forward_helper<0, ClientTraits>(device_tag, std::forward<Callable>(callable), std::forward<Args>(args)...);
+    }
+};
 
 template<>
 struct RuntimeTransportTraitsResolution<default_device_set, void>

@@ -85,15 +85,11 @@ public:
     }
 
 protected:
-    ~BaseEventHandlingPolicy()
-    {
-        if (subscribedToListener()) {
-            listenerUnsubscribe();
-        }
-    }
+    ~BaseEventHandlingPolicy() = default;
 
     void setHandle(Handle handle)
     {
+        std::cout << "BaseEventHandlingPolicy::setHandle() handle: " << handle << "\n";
         m_optional_handle_ref = handle;
     }
 

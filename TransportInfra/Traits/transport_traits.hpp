@@ -211,6 +211,30 @@ namespace infra
                                        >;
     };
 
+
+    template<std::size_t tag,
+             typename ResourceHandler,
+             typename DevicePolicies>
+     struct device_generator
+    {
+        template<typename Device>
+        using add_policies = PackHostT<Device, DevicePolicies>;
+
+        using type = add_policies<typename Device2Type<tag>::template device_type<ResourceHandler>>;
+    };
+
+    template<typename ResourceHandler,
+             typename DevicePolicies,
+             template <std::size_t...> typename DeviceSet,
+             std::size_t... tags>
+    struct generate_device_typelist<ResourceHandler, DevicePolicies, DeviceSet<tags...>>
+    {
+        //template<typename Device> using add_policies = PackHostT<Device, DevicePolicies>;
+
+        //using type = meta::tl::typelist<add_policies<typename Device2Type<tags...>::template device_type<ResourceHandler>>>;
+        using type = meta::tl::generate_typelist_t<DeviceSet<tags...>, device_generator, ResourceHandler, DevicePolicies>;
+    };
+
     template<typename ClientTraits,
              typename DeviceSet = typename ClientTraits::DeviceSet,
              typename Enable = void>
@@ -230,6 +254,22 @@ namespace infra
                                         >;
     };
 
+
+    template<std::size_t tag, typename ClientTraits>
+    struct endpoint_generator
+    {
+        using type = typename transport_traits<tag, ClientTraits>::transport_endpoint_t;
+    };
+
+    template<typename ClientTraits,
+             template <std::size_t...> typename DeviceSet,
+             std::size_t... tags>
+    struct generate_endpoint_typelist<ClientTraits, DeviceSet<tags...>>
+    {
+        //using type = meta::tl::typelist<typename endpoint_generator<tags..., ClientTraits>::type>;
+        using type  = meta::tl::generate_typelist_t<DeviceSet<tags...>, endpoint_generator, ClientTraits>;
+    };
+
     template<typename EndpointTList>
     struct get_devices_from_endpoint_typelist;
 
@@ -237,6 +277,19 @@ namespace infra
     struct get_devices_from_endpoint_typelist<meta::tl::typelist<Ts...>>
     {
         using type = meta::tl::typelist<typename Ts::Device...>;
+    };
+
+    template<typename T, typename = void>
+    struct type_to_device_tag
+    {
+        static constexpr auto value{undefined_device_tag};
+    };
+
+    template<typename T>
+    struct type_to_device_tag<T, std::enable_if_t<def::has_type_Device<T>::value>>
+    {
+        using HostDevice = typename T::Device;
+        static constexpr auto value = Type2DeviceTag<typename UnpackHost<HostDevice>::ClientT>::value;
     };
 
 } //infra

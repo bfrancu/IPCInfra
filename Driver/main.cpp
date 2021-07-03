@@ -124,6 +124,14 @@ int main() {
     return 0;
 }
 */
+
+void redirectLogsToFile()
+{
+    std::ofstream out{"/home/bfrancu/Documents/Work/Projects/IPCInfra/logs.txt"};
+    std::streambuf *coutbuf = std::cout.rdbuf();
+    std::cout.rdbuf(out.rdbuf());
+}
+
 struct my_dummy{};
 int main()
 {
@@ -133,6 +141,7 @@ int main()
     //testReactor();
     //infra::meta::dispatch::dispatch_main();
     //transport::testConnectorClient();
+    //redirectLogsToFile();
     transport::testAcceptorClient();
     //testFileInfo();
     //testSocketDevices();

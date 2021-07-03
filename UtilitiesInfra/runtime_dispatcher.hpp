@@ -1,5 +1,7 @@
 #ifndef RUNTIME_DISPATCHER_HPP
 #define RUNTIME_DISPATCHER_HPP
+#include <iostream>
+
 #include "typelist.hpp"
 #include "function_traits.hpp"
 
@@ -65,6 +67,10 @@ decltype(auto) extractValue(object_wrapper<IsConst> wrapper)
     return *(reinterpret_cast<cast_object_t<T, object_wrapper<IsConst>>>(wrapper.object));
 }
 
+//index based tag
+// TODO implement a way to have distinct tags that would not require to be consecutive
+// or to be equivalent to the "N" index
+// we need to have a generic way to identify the type in Position "N" in the typelist with a certain tag
 template<typename TList, std::size_t N>
 struct dispatch_helper
 {
@@ -98,13 +104,66 @@ struct dispatch_helper
                                                        std::forward<Args>(args)...);
         }
     }
-
 };
 
 template<typename TList, typename F, typename... Args>
 decltype(auto) dispatch(std::size_t tag, F && f, Args &&... args)
 {
     return dispatch_helper<TList, 0>::dispatch(tag, std::forward<F>(f), std::forward<Args>(args)...);
+}
+
+template<typename TList, template<typename... > typename TypeToTag, std::size_t N>
+struct dispatch_helper_mapped
+{
+    template<typename F, typename... Args>
+    static void dispatch(std::size_t tag, F && f, Args&&... args)
+    {
+        using object_t = tl::nth_element_t<TList, N>;
+        auto object_tag = TypeToTag<object_t>::value;
+
+        std::cout << "dispatch_helper_mapped::dispatch() : object_tag " << object_tag
+                  << "; tag: " << tag << "\n";
+
+        if (object_tag == tag) {
+            if constexpr (!std::is_same_v<tl::empty_type, object_t>){
+                f(object_t(), std::forward<Args>(args)...);
+            }
+        }
+        else if constexpr (N < tl::size_v<TList> - 1) {
+            dispatch_helper<TList, N+1>::dispatch(tag, std::forward<F>(f),
+                                                       std::forward<Args>(args)...);
+        } 
+    }
+
+    template<bool IsConst, typename F, typename... Args>
+    static void dispatch(std::size_t tag, F && f, object_wrapper<IsConst> wrapper, Args&&... args)
+    {
+        using object_t = tl::nth_element_t<TList, N>;
+        auto object_tag = TypeToTag<object_t>::value;
+
+        std::cout << "dispatch_helper_mapped::dispatch() : object_tag " << object_tag
+                  << "; tag: " << tag << "\n";
+
+        if (object_tag == tag) {
+            if constexpr (!std::is_same_v<tl::empty_type, object_t>){
+                auto & ref = extractValue<object_t>(wrapper);
+                f(ref, std::forward<Args>(args)...);
+            }
+        }
+        else if constexpr (N < tl::size_v<TList> - 1) {
+            dispatch_helper<TList, N+1>::dispatch(tag, std::forward<F>(f), wrapper,
+                                                       std::forward<Args>(args)...);
+        }
+    }
+};
+
+template<typename TList,
+         template<typename... > typename TypeToTag,
+         typename F, typename... Args>
+decltype(auto) dispatch_mapped(std::size_t tag, F && f, Args &&... args)
+{
+    std::cout << "dispatch_mapped()\n";
+    return dispatch_helper_mapped<TList, TypeToTag, 0>::dispatch(tag, std::forward<F>(f), std::forward<Args>(args)...);
 }
 
 template<auto V, typename = void>
@@ -220,6 +279,74 @@ public:                                                                         
     }                                                                                                              \
 }//; intentionally skipped
 
+#define DEFINE_DISPATCH_TO_MEMBER_MAPPED(Member)                                                                   \
+                                                                                                                   \
+template<typename TList, template<typename... > typename TypeToTag>                                                \
+class Member##_dispatcher_mapped                                                                                   \
+{                                                                                                                  \
+                                                                                                                   \
+private:                                                                                                           \
+    DEFINE_HAS_MEMBER(Member);                                                                                     \
+    DEFINE_RETURN_TYPES_FROM_MEMBER(Member);                                                                       \
+                                                                                                                   \
+    using return_##Member##_variant_internal = infra::meta::tl::to_variant_t<infra::meta::tl::push_front_t<        \
+                                                   infra::meta::tl::remove_duplicates_t<                           \
+                                                   infra::meta::tl::erase_t<return_types_from_##Member##_t<        \
+                                                   infra::meta::tl::filter_t<                                      \
+                                                   has_member_##Member, TList, true>>, void>>, std::monostate>>;   \
+                                                                                                                   \
+private:                                                                                                           \
+    struct select_##Member##_overload                                                                              \
+    {                                                                                                              \
+        template<typename T, typename... Args,                                                                     \
+                 typename = decltype(std::declval<T>().Member(std::declval<Args&&>()...)) >                        \
+        static void call(T && object, return_##Member##_variant_internal & result, Args&&... args){                \
+            using return_type = std::decay_t<decltype(std::declval<T>().Member(std::declval<Args&&>()...))>;       \
+            if constexpr (infra::meta::tl::contains_v<return_##Member##_variant_internal, return_type>) {          \
+                 result = std::forward<T>(object).Member(std::forward<Args>(args)...);                             \
+            }                                                                                                      \
+            else {                                                                                                 \
+                 std::forward<T>(object).Member(std::forward<Args>(args)...);                                      \
+            }                                                                                                      \
+        }                                                                                                          \
+                                                                                                                   \
+        template<typename T, typename... Args,                                                                     \
+                 typename = decltype(std::declval<T>().Member(std::declval<Args&&>()...)) >                        \
+        static decltype(auto) call(T && object, Args&&... args) {                                                  \
+            return std::forward<T>(object).Member(std::forward<Args>(args)...);                                    \
+        }                                                                                                          \
+                                                                                                                   \
+        template<typename...>                                                                                      \
+        static void call(...) {}                                                                                   \
+    };                                                                                                             \
+                                                                                                                   \
+public:                                                                                                            \
+    using return_##Member##_variant = return_##Member##_variant_internal;                                          \
+    using return_variant = return_##Member##_variant_internal;                                                     \
+                                                                                                                   \
+    template<typename... Args>                                                                                     \
+    static return_##Member##_variant call(std::size_t tag, Args&&... args)                                         \
+    {                                                                                                              \
+        return_##Member##_variant result;                                                                          \
+        auto cb = [&result, &args...](auto && object){                                                             \
+            select_##Member##_overload::call(std::move(object), result, std::forward<Args>(args)...);              \
+        };                                                                                                         \
+        infra::meta::dispatch::dispatch_mapped<TList, TypeToTag>(tag, cb);                                         \
+        return result;                                                                                             \
+    }                                                                                                              \
+                                                                                                                   \
+    template<bool IsConst, typename... Args>                                                                       \
+    static return_##Member##_variant call(std::size_t tag, infra::meta::dispatch::object_wrapper<IsConst> wrapper, \
+                                          Args&&... args)                                                          \
+    {                                                                                                              \
+        return_##Member##_variant result;                                                                          \
+        auto cb = [&result, &args...](auto & object){                                                              \
+            select_##Member##_overload::call(object, result, std::forward<Args>(args)...);                         \
+        };                                                                                                         \
+        infra::meta::dispatch::dispatch_mapped<TList, TypeToTag>(tag, cb, wrapper);                                \
+        return result;                                                                                             \
+    }                                                                                                              \
+}//; intentionally skipped
 
 } //dispatch
 } //meta

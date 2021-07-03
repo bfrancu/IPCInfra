@@ -17,24 +17,36 @@ namespace infra
 
 class DefinitionsContainer
 {
-    DEFINE_DISPATCH_TO_MEMBER(send);
+    DEFINE_DISPATCH_TO_MEMBER_MAPPED(send);
+    //DEFINE_DISPATCH_TO_MEMBER(send);
     template<typename> friend class DynamicTransportEndpointAdapter;
 };
 
 class ClientDefinitionsContainer
 {
+    DEFINE_DISPATCH_TO_MEMBER_MAPPED(connect);
+    DEFINE_DISPATCH_TO_MEMBER_MAPPED(registerInputCallback);
+    DEFINE_DISPATCH_TO_MEMBER_MAPPED(registerDisconnectionCallback);
+    /*
     DEFINE_DISPATCH_TO_MEMBER(connect);
     DEFINE_DISPATCH_TO_MEMBER(registerInputCallback);
     DEFINE_DISPATCH_TO_MEMBER(registerDisconnectionCallback);
+    */
     template<typename> friend class ClientDynamicTransportEndpointAdapter;
 };
 
 class ServerDefinitionsContainer
 {
+   DEFINE_DISPATCH_TO_MEMBER_MAPPED(bind);
+   DEFINE_DISPATCH_TO_MEMBER_MAPPED(registerClientInputCallback);
+   DEFINE_DISPATCH_TO_MEMBER_MAPPED(registerClientConnectionCallback);
+   DEFINE_DISPATCH_TO_MEMBER_MAPPED(registerClientDisconnectionCallback);
+   /*
    DEFINE_DISPATCH_TO_MEMBER(bind);
    DEFINE_DISPATCH_TO_MEMBER(registerClientInputCallback);
    DEFINE_DISPATCH_TO_MEMBER(registerClientConnectionCallback);
    DEFINE_DISPATCH_TO_MEMBER(registerClientDisconnectionCallback);
+   */
    template<typename> friend class ServerDynamicTransportEndpointAdapter;
 };
 
@@ -64,12 +76,14 @@ public:
     template<typename... Args>
     decltype(auto) send(Args&&... args)
     {
-        using return_t = typename Def::send_dispatcher<EndpointTList>::return_send_variant;
+        using return_t = typename Def::send_dispatcher_mapped<EndpointTList, type_to_device_tag>::return_send_variant;
+        //using return_t = typename Def::send_dispatcher<EndpointTList>::return_send_variant;
         return_t ret;
         if (m_pEndpoint)
         {
             auto wrapper = meta::dispatch::wrap(m_pEndpoint->getInternalEndpoint());
-            ret = Def::send_dispatcher<EndpointTList>::call(this->getDeviceTag(), wrapper, std::forward<Args>(args)...);
+            ret = Def::send_dispatcher_mapped<EndpointTList, type_to_device_tag>::call(this->getDeviceTag(), wrapper, std::forward<Args>(args)...);
+            //ret = Def::send_dispatcher<EndpointTList>::call(this->getDeviceTag(), wrapper, std::forward<Args>(args)...);
         }
         return ret;
     }
@@ -109,18 +123,23 @@ protected:
         return static_cast<std::unique_ptr<IDerivedInterface>&>(m_pEndpoint);
     }
 
-    template<template<typename> typename MethodDispatcher, typename CB >
+    template<template<typename, template<typename...> typename > typename MethodDispatcher, typename CB >
+    //template<template<typename> typename MethodDispatcher, typename CB >
     bool registerCallback(CB && cb)
     {
         if (!m_pEndpoint) return false;
-        using return_t = typename MethodDispatcher<EndpointTList>::return_variant;
+        std::cout << "DynaicTransportEndpointAdapter::registerCallback()\n";
+        using return_t = typename MethodDispatcher<EndpointTList, type_to_device_tag>::return_variant;
+        //using return_t = typename MethodDispatcher<EndpointTList>::return_variant;
         auto wrapper = meta::dispatch::wrap(m_pEndpoint->getInternalEndpoint());
         return_t ret;
         if (std::holds_alternative<bool>(ret)) {
             ret = false;
         }
 
-        ret = MethodDispatcher<EndpointTList>::call(m_device_tag, wrapper, std::forward<CB>(cb));
+        std::cout << "DynaicTransportEndpointAdapter::registerCallback() calling dispatcher\n";
+        ret = MethodDispatcher<EndpointTList, type_to_device_tag>::call(m_device_tag, wrapper, std::forward<CB>(cb));
+        //ret = MethodDispatcher<EndpointTList>::call(m_device_tag, wrapper, std::forward<CB>(cb));
         if (std::holds_alternative<bool>(ret)) {
             return std::get<bool>(ret);
         }
@@ -163,12 +182,15 @@ public:
     // dispatcher callbacks
     template<typename InputAvailableCB>
     bool registerInputCallback(InputAvailableCB && cb) {
-        return Base::template registerCallback<Def::registerInputCallback_dispatcher>(std::forward<InputAvailableCB>(cb));
+        std::cout << "ClientDynamicTransportEndpointAdapter::registerInputCallback()\n";
+        return Base::template registerCallback<Def::registerInputCallback_dispatcher_mapped>(std::forward<InputAvailableCB>(cb));
+        //return Base::template registerCallback<Def::registerInputCallback_dispatcher>(std::forward<InputAvailableCB>(cb));
     }
 
     template<typename DisconnectedCB>
     bool registerDisconnectionCallback(DisconnectedCB && cb) {
-        return Base::template registerCallback<Def::registerDisconnectionCallback_dispatcher>(std::forward<DisconnectedCB>(cb));
+        return Base::template registerCallback<Def::registerDisconnectionCallback_dispatcher_mapped>(std::forward<DisconnectedCB>(cb));
+        //return Base::template registerCallback<Def::registerDisconnectionCallback_dispatcher>(std::forward<DisconnectedCB>(cb));
     }
     
     void onConnected()
@@ -188,12 +210,14 @@ public:
     template<typename Address>
     decltype(auto) connect(Address && address)
     {
-        using return_t = typename Def::connect_dispatcher<EndpointTList>::return_connect_variant;
+        using return_t = typename Def::connect_dispatcher_mapped<EndpointTList, type_to_device_tag>::return_connect_variant;
+        //using return_t = typename Def::connect_dispatcher<EndpointTList>::return_connect_variant;
         return_t ret;
         if (Base::endpoint())
         {
             auto wrapper = meta::dispatch::wrap(Base::endpoint()->getInternalEndpoint());
-            ret = Def::connect_dispatcher<EndpointTList>::call(this->getDeviceTag(), wrapper, std::forward<Address>(address));
+            ret = Def::connect_dispatcher_mapped<EndpointTList, type_to_device_tag>::call(this->getDeviceTag(), wrapper, std::forward<Address>(address));
+            //ret = Def::connect_dispatcher<EndpointTList>::call(this->getDeviceTag(), wrapper, std::forward<Address>(address));
         }
         return ret;
     }
@@ -244,17 +268,20 @@ public:
 
     template<typename ClientInputAvailableCB>
     bool registerClientInputCallback(ClientInputAvailableCB && cb) {
-        return Base::template registerCallback<Def::registerClientInputCallback_dispatcher>(std::forward<ClientInputAvailableCB>(cb));
+        return Base::template registerCallback<Def::registerClientInputCallback_dispatcher_mapped>(std::forward<ClientInputAvailableCB>(cb));
+        //return Base::template registerCallback<Def::registerClientInputCallback_dispatcher>(std::forward<ClientInputAvailableCB>(cb));
     }
 
     template<typename ClientConnectedCB>
     bool registerClientConnectionCallback(ClientConnectedCB && cb) {
-        return Base::template registerCallback<Def::registerClientConnectionCallback_dispatcher>(std::forward<ClientConnectedCB>(cb));
+        return Base::template registerCallback<Def::registerClientConnectionCallback_dispatcher_mapped>(std::forward<ClientConnectedCB>(cb));
+        //return Base::template registerCallback<Def::registerClientConnectionCallback_dispatcher>(std::forward<ClientConnectedCB>(cb));
     }
 
     template<typename ClientDisconnectedCB>
     bool registerClientDisconnectionCallback(ClientDisconnectedCB && cb) {
-        return Base::template registerCallback<Def::registerClientDisconnectionCallback_dispatcher>(std::forward<ClientDisconnectedCB>(cb));
+        return Base::template registerCallback<Def::registerClientDisconnectionCallback_dispatcher_mapped>(std::forward<ClientDisconnectedCB>(cb));
+        //return Base::template registerCallback<Def::registerClientDisconnectionCallback_dispatcher>(std::forward<ClientDisconnectedCB>(cb));
     }
 
     bool bind(std::string_view addr, bool reusable)
@@ -267,12 +294,14 @@ public:
     template<typename Address>
     decltype(auto) bind(Address & address, bool reusable)
     {
-        using return_t = typename Def::bind_dispatcher<EndpointTList>::return_bind_variant;
+        using return_t = typename Def::bind_dispatcher_mapped<EndpointTList, type_to_device_tag>::return_bind_variant;
+        //using return_t = typename Def::bind_dispatcher<EndpointTList>::return_bind_variant;
         return_t ret;
         if (Base::endpoint())
         {
             auto wrapper = meta::dispatch::wrap(Base::endpoint()->getInternalEndpoint());
-            ret = Def::bind_dispatcher<EndpointTList>::call(this->getDeviceTag(), wrapper, std::forward<Address>(address), reusable);
+            ret = Def::bind_dispatcher_mapped<EndpointTList, type_to_device_tag>::call(this->getDeviceTag(), wrapper, std::forward<Address>(address), reusable);
+            //ret = Def::bind_dispatcher<EndpointTList>::call(this->getDeviceTag(), wrapper, std::forward<Address>(address), reusable);
         }
         return ret;
     }

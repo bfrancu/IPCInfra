@@ -3,6 +3,8 @@
 #include <memory>
 #include <unordered_map>
 #include <optional>
+#include <algorithm>
+#include <iostream>
 
 #include "default_traits.hpp"
 
@@ -18,7 +20,7 @@ public:
     using key_t = Key;
     using endpoint_ptr = std::unique_ptr<endpoint_t>;
     using optional_endpoint_ptr_ref = std::optional<std::reference_wrapper<endpoint_ptr>>; 
-    using const_optional_endpoint_ptr_ref = std::optional<std::reference_wrapper<const endpoint_ptr>>; 
+    using const_optional_endpoint_ptr_ref = std::optional<std::reference_wrapper<const endpoint_ptr>>;
 
 public:
     bool store(key_t key, endpoint_ptr p_endpoint) {
@@ -50,6 +52,11 @@ public:
         return ret;
     }
 
+    template<typename UnaryFunction>
+    void forEach(UnaryFunction f){
+        f(m_pEndpoint);
+    }
+
 private:
     endpoint_ptr m_pEndpoint{nullptr};
     key_t m_key{meta::traits::default_value<key_t>::value};
@@ -77,6 +84,7 @@ public:
     {
         auto [found, iter] = valueFor(key);
         if (found){
+            std::cout << "AssociativeEndpointStorage::erase() removing by key: " << key << "\n";
             m_container.erase(iter);
         }
     }
@@ -97,6 +105,12 @@ public:
             ret = std::cref(iter->second);
         }
         return ret;
+    }
+
+    template<typename UnaryFunction>
+    void forEach(UnaryFunction f)
+    {
+        std::for_each(std::begin(m_container), std::end(m_container), f);
     }
 
 protected:

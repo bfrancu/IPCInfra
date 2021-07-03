@@ -282,6 +282,71 @@ struct remove_duplicates<typelist<>>
 template<typename TList>
 using remove_duplicates_t = typename remove_duplicates<TList>::type;
 
+
+template<typename VariableSet,
+         template<auto V, typename... > typename Generator,
+         typename... RestOfTypes>
+struct generate_typelist_helper;
+
+template<typename T,
+         T Head, T... Tails,
+         template <T...> typename Set,
+         template<T, typename... > typename Generator,
+         typename... RestOfTypes>
+struct generate_typelist_helper<Set<Head, Tails...>, Generator, RestOfTypes...>
+{
+    using type = push_front_t<typename generate_typelist_helper<Set<Tails...>, Generator, RestOfTypes...>::type,
+                              typename Generator<Head, RestOfTypes...>::type>;
+};
+
+/*
+template<typename T, T V,
+         template <T...> typename Set,
+         template<T, typename... > typename Generator,
+         typename... RestOfTypes>
+struct generate_typelist_helper<Set<V>, Generator, RestOfTypes...>
+{
+    using type = typelist<typename Generator<V, RestOfTypes...>::type>;
+};*/
+
+
+template<template<auto...> typename Set,
+         template<auto V, typename... > typename Generator,
+         typename... RestOfTypes>
+struct generate_typelist_helper<Set<>, Generator, RestOfTypes...>
+{
+    using type = typelist<>;
+};
+
+
+template<typename ValuesSet,
+         template<auto V, typename... > typename Generator,
+         typename... RestOfTypes>
+struct generate_typelist
+{
+    using type = typename generate_typelist_helper<ValuesSet, Generator, RestOfTypes...>::type;
+};
+
+
+template<typename ValuesSet,
+         template<auto V, typename... > typename Generator,
+         typename... RestOfTypes>
+using generate_typelist_t = typename generate_typelist<ValuesSet, Generator, RestOfTypes...>::type;
+
+/*
+template<typename T,
+         T... Values,
+         template <T...> typename Set,
+         template<typename... > typename Generator,
+         typename... RestOfTypes>
+struct generate_typelist<Set<Values...>,
+                         Generator,
+                         RestOfTypes...>
+{
+};
+*/
+
+
 #define DEFINE_GET_MEMBER_TYPE_BY_INDEX(Member)                                \
 template<typename TList, std::size_t N>                                        \
 struct get_##Member##_type_by_index                                            \

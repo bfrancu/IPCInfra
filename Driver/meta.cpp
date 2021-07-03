@@ -7,6 +7,7 @@
 #include "pointer_traits.hpp"
 #include "template_typelist.hpp"
 #include "typelist.hpp"
+#include "non_typelist.hpp"
 #include "runtime_dispatcher.hpp"
 #include "traits_utils.hpp"
 #include "Traits/device_constraints.hpp"
@@ -105,7 +106,45 @@ static_assert(contains_v<floating_tuple, double>);
 static_assert(std::is_same_v<nth_element_t<custom_tlist, 3>, test_struct>);
 static_assert(std::is_same_v<typename get_test_type_by_index<custom_tlist, 3>::type, int>);
 
+template<auto V, typename... Ts>
+struct test_holder{};
+
+template<auto V, typename... Ts>
+struct test_generator
+{
+    using type = test_holder<V, Ts...>;
+};
+
+using tags_set = ntl::non_typelist<1, 2, 3, 4>;
+
+static_assert(std::is_same_v<typename test_generator<1, double>::type, test_holder<1, double>>);
+
+using generated_tlist = typelist<test_holder<1, double>,
+                                 test_holder<2, double>,
+                                 test_holder<3, double>,
+                                 test_holder<4, double>>;
+
+using result_tlist = typename generate_typelist<tags_set, test_generator, double>::type;
+static_assert (std::is_same_v<result_tlist, generated_tlist>);
+
 } //tl
+
+namespace ntl
+{
+
+non_typelist<1, 2,3> ts;
+static_assert(is_empty_v<non_typelist<>>);
+static_assert(size_v<non_typelist<1, 2, 3>> == 3);
+static_assert(size_v<non_typelist<1>> == 1);
+static_assert(front_v<non_typelist<3250, 56111, 3877>> == 3250);
+static_assert(back_v<non_typelist<3250, 56111, 3877>> == 3877);
+static_assert(std::is_same_v<push_front_t<non_typelist<1, 2, 3>, 8>, non_typelist<8, 1, 2, 3>>);
+static_assert(std::is_same_v<push_back_t<non_typelist<1, 2, 3>, 8>, non_typelist<1, 2, 3, 8>>);
+static_assert(nth_element_v<non_typelist<0, 1, 2, 19, 8>, 4> == 8);
+static_assert (nth_element_v<non_typelist<1>, 0> == 1);
+static_assert (nth_element_v<non_typelist<1, 2>, 1> == 2);
+
+}//ntl
 
 } //meta
 
@@ -333,9 +372,16 @@ public:
         dispatch<TList>(tag, cb, wrapper);
         return result;
     }
-
 };
 
+template<typename NonTList>
+struct pop_front;
+
+template<typename T,
+         template<T... > typename NonTList,
+         T... elements>
+struct pop_front<NonTList<elements...>>
+{};
 
 void dispatch_main()
 {

@@ -73,7 +73,8 @@ struct generate_endpoint_typelist
 struct default_client_traits
 {
     // device traits
-    using DeviceSet = default_device_set;
+    //using DeviceSet = default_device_set;
+    using DeviceSet = meta::ntl::non_typelist<ipv4_strm_tag>;
     using ResourceHandler = UnixResourceHandler;
     using DevicePolicies = meta::ttl::template_typelist<ConnectionPolicy, ResourceStatusPolicy, GenericIOPolicy>;
     using ExportPolicies = meta::ttl::template_typelist<ResourceStatusPolicy, SeekableOperations>;
@@ -156,8 +157,8 @@ public:
 
         std::cout << "\nConnecting dynamic device\n";
         ConnectionInitializerAdapter::connect<client_traits>(m_device_type, book, section, m_connector, dynamic_completion_cb);
-        std::cout << "\nConnecting static device\n";
-        ConnectionInitializerAdapter::connect<client_traits, static_device_tag>(book, section, m_connector, static_completion_cb);
+        //std::cout << "\nConnecting static device\n";
+        //ConnectionInitializerAdapter::connect<client_traits, static_device_tag>(book, section, m_connector, static_completion_cb);
     }
 
     inline int getDeviceType() const { return m_device_type; }

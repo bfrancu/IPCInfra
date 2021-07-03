@@ -86,7 +86,10 @@ template<typename Client, typename TList>
 using PackHostT = typename PackHost<Client, TList>::Type;
 
 template<typename PackedHost>
-struct UnpackHost;
+struct UnpackHost
+{
+    using ClientT = PackedHost;
+};
 
 template<typename Client,
          template<typename...> typename... Plugins>

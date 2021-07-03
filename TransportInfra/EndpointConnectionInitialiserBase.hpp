@@ -83,6 +83,7 @@ protected:
     template<typename ConcreteWrapper, typename Endpoint>
     bool subscribe(const CompletionCallback & cb, std::unique_ptr<Endpoint> p_endpoint, const events_array & subscribed_events)
     {
+        std::cout << "EndpointConnectionInitialiserBase::subscribe()\n";
         using handle_t = typename Demultiplexer::Handle;
         handle_t handle{meta::traits::default_value<handle_t>::value};
         auto accessor = [&handle] (handle_t h) { handle = h; };

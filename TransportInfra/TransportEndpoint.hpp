@@ -122,6 +122,7 @@ public:
 template<typename T>
 class ServerDynamicTransportEndpointWrapper : public DynamicTransportEndpointWrapper<T, IServerTransportEndpoint>
 {
+public:
     ServerDynamicTransportEndpointWrapper(std::unique_ptr<T> p_endpoint) :
         DynamicTransportEndpointWrapper<T, IServerTransportEndpoint>(std::move(p_endpoint))
     {}
@@ -172,19 +173,30 @@ public:
     explicit TransportEndpoint(EConnectionState initial_state, Listener & listener) :
         EventHandlingBase(listener)
     {
+        std::cout << "TransportEndpoint::TransportEndpoint(EConnectionState, Listener &))\n";
         m_optional_storage_and_state.member() = utils::to_underlying(initial_state);
     }
 
     explicit TransportEndpoint(Listener & listener) :
         EventHandlingBase(listener)
     {
+        std::cout << "TransportEndpoint::TransportEndpoint(Listener &)\n";
         m_optional_storage_and_state.member() = utils::to_underlying(EConnectionState::E_AVAILABLE);
+    }
+
+    ~TransportEndpoint()
+    {
+        if (EventHandlingBase::subscribedToListener())
+        {
+            EventHandlingBase::listenerUnsubscribe();
+        }
     }
 
 public:
     bool onInputEvent()
     {
-        return ClientServerLogicBase::ProcessInputEvent() && DispatcherBase::ProcessInputEvent();
+        DispatcherBase::ProcessInputEvent();
+        return  ClientServerLogicBase::ProcessInputEvent();
     }
 
     bool onWriteAvailable() 
@@ -210,8 +222,9 @@ public:
         return ClientServerLogicBase::ProcessErrorEvent();
     }
 
-    void setDevice(AssembledDevice device)
+    void setDevice(AssembledDevice && device)
     {
+        std::cout << "TransportEndpoint::setDevice()\n";
         m_device = std::move(device);
         //EventHandlingPolicy<Listener>::setHandle(GenericDeviceAccess::getHandle(m_device));
         EventHandlingBase::setHandle(GenericDeviceAccess::getHandle(m_device));
@@ -242,18 +255,21 @@ protected:
     template<typename S, typename = std::enable_if_t<std::is_same_v<S, Storage> && traits::is_endpoint_storage_v<S>>>
     void onClientConnected(const typename S::key_t & key)
     {
+        std::cout << "TransportEndpoint::onClientConnected()\n";
         DispatcherBase::ProcessClientConnected(key);
     }
 
     template<typename S, typename = std::enable_if_t<std::is_same_v<S, Storage> && traits::is_endpoint_storage_v<S>>>
     void onClientDisconnected(const typename S::key_t & key)
     {
+        std::cout << "TransportEndpoint::onClientDisconnected()\n";
         DispatcherBase::ProcessClientDisconnected(key);
     }
 
     template<typename S, typename = std::enable_if_t<std::is_same_v<S, Storage> && traits::is_endpoint_storage_v<S>>>
     void onClientInputAvailable(const typename S::key_t & key, std::string_view data)
     {
+        std::cout << "TransportEndpoint::onClientInputAvailable()\n";
         DispatcherBase::ProcessClientInput(key, data);
     }
 

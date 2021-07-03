@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <cstring>
+//#include <iostream>
 
 namespace infra
 {
@@ -43,6 +44,7 @@ ssize_t LinuxIOUtilities::recvInBuffer(RecvFunc && callable, int fd, size_t max_
 template<typename RecvFunc, typename... Args>
 ssize_t LinuxIOUtilities::recv(RecvFunc && callable, int fd, size_t max_length, std::string & result, int flags, Args&&... additional_args)
 {
+    //std::cout << "LinuxIOUtilities::recv()\n";
     result.clear();
     char buf[READ_BUFFER_SIZE];
     ssize_t ret_total_size_read{0};
@@ -56,6 +58,7 @@ ssize_t LinuxIOUtilities::recv(RecvFunc && callable, int fd, size_t max_length, 
 
         if (ret_total_size_read > 0){
             result.assign(buf, static_cast<size_t>(ret_total_size_read));
+            //std::cout << "LinuxIOUtilities::recv() 1: result: " << result << "\n";
         }
     }
 
@@ -81,6 +84,7 @@ ssize_t LinuxIOUtilities::recv(RecvFunc && callable, int fd, size_t max_length, 
         }
 
         result.append(buf, static_cast<size_t>(read_count_per_call));
+        //std::cout << "LinuxIOUtilities::recv() 2: result: " << result << "\n";
         ret_total_size_read += read_count_per_call;
 
         //the buffer is not fully filled. no more data available

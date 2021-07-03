@@ -231,7 +231,7 @@ public:
 
 protected:
     SubscriberID subscribeImpl(const events_array & events, handle_t handle){
-        std::cout << "Reactor::subscribeImpl()\n";
+        std::cout << "Reactor::subscribeImpl() handle: " << handle << "\n";
         uint32_t subscription_mask = m_demux_impl.getEventsMask(events);
         bool find_res{false};
         bool already_subscribed{false};

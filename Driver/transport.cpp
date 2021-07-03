@@ -106,21 +106,24 @@ void testAcceptorClient()
     std::string config_file{"/home/bfrancu/Documents/Work/Projects/IPCInfra/Configuration/example.ini"};
     std::string config_section{"CONNECTION_DETAILS"};
     AcceptorClient<default_server_traits> server{acceptor, config_file};
+    /*
     constexpr auto dev_tag = write_fifo_tag;
     using ServerEndpointStorageT = typename transport_traits<dev_tag, default_server_traits>::endpoint_storage_t;
     using DeviceT = typename transport_traits<dev_tag, default_server_traits>::device_host_t;
     using EndpointT = typename transport_traits<dev_tag, default_server_traits>::transport_endpoint_t;
     using DeviceAddressT = typename transport_traits<dev_tag, default_server_traits>::device_address_t;
     //using UnixSocketWithPolicies = PackHostT<defaults::ReadFifoDevice, meta::ttl::template_typelist<AcceptorPolicy>>;
-
     EndpointT endpoint(reactor);
-
     static_assert(IsPassiveConnectableDevice<DeviceT>::value);
     static_assert (traits::is_endpoint_storage_v<ServerEndpointStorageT>);
     DeviceT dev;
     dev.bind(DeviceAddressT{}, true);
+    */
 
+    reactor.start();
     server.init(config_section);
+    std::cout << "you are here\n";
+    for (;;) {}
 }
 
 DEFINE_HAS_MEMBER(init);
@@ -493,6 +496,15 @@ static_assert(def::has_member_store<SampleSingleStorage>::value);
 static_assert(def::has_member_erase<SampleSingleStorage>::value);
 static_assert(traits::has_member_getEndpointFor<SampleSingleStorage>::value);
 static_assert(def::has_member_store<SampleSingleStorage>::value);
+
+using ipv4_stream_socket_endpoint_t = typename transport_traits<ipv4_strm_tag, default_client_traits>::transport_endpoint_t;
+using ipv4_stream_socket_endpoint_t_host_device = typename ipv4_stream_socket_endpoint_t::Device;
+static_assert (std::is_same_v<typename UnpackHost<ipv4_stream_socket_endpoint_t_host_device>::ClientT, defaults::IPV4TcpSocketDevice>);
+static_assert (Type2DeviceTag<defaults::IPV4TcpSocketDevice>::value == ipv4_strm_tag);
+static_assert (type_to_device_tag<ipv4_stream_socket_endpoint_t>::value == ipv4_strm_tag);
+static_assert (def::has_type_Device<ipv4_stream_socket_endpoint_t>::value);
+static_assert (type_to_device_tag<ipv4_stream_socket_endpoint_t>::value == ipv4_strm_tag);
+
 }
 }//transport
 }//infra
